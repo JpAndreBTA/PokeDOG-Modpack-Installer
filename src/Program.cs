@@ -1022,8 +1022,10 @@ internal static class MinecraftInstanceLocator
 internal static class InstallerEngine
 {
     private const long ResumableDownloadThresholdBytes = 64L * 1024 * 1024;
-    private const int DownloadChunkBytes = 8 * 1024 * 1024;
+    private const int DownloadChunkBytes = 2 * 1024 * 1024;
     private const int DownloadMaxAttempts = 5;
+    private static readonly TimeSpan DownloadHeadersTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan DownloadIdleTimeout = TimeSpan.FromSeconds(45);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -1035,7 +1037,7 @@ internal static class InstallerEngine
 
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
+        using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
@@ -1358,7 +1360,7 @@ internal static class InstallerEngine
 
         log.Write($"Nova revisao do instalador disponivel: {installer.Version}");
         var destination = currentExe + ".update";
-        await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken, null, 10, 25, "Atualizador do installer");
+        await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken, installer.Size > 0 ? installer.Size : null, 10, 25, "Atualizador do installer");
         if (dryRun)
         {
             return false;
@@ -1870,6 +1872,34 @@ del /f /q "%~f0" >nul 2>nul
             : $"DOWNLOAD iniciando {displayLabel} em blocos retomaveis");
 
         var lastLoggedPercent = totalBytes > 0 ? (int)Math.Floor(downloaded * 100d / totalBytes) - 10 : -1;
+        var lastReportedProgress = -1;
+        var activityTimer = Stopwatch.StartNew();
+        var activityBytes = downloaded;
+        void ReportDownloadActivity(long currentBytes)
+        {
+            var percent = (int)Math.Floor(currentBytes * 100d / totalBytes);
+            if (progressEnd > progressStart)
+            {
+                var mappedProgress = progressStart + percent * (progressEnd - progressStart) / 100;
+                if (mappedProgress != lastReportedProgress)
+                {
+                    lastReportedProgress = mappedProgress;
+                    log.ReportProgress(mappedProgress);
+                }
+            }
+
+            if (activityTimer.Elapsed < TimeSpan.FromSeconds(10))
+            {
+                return;
+            }
+
+            var elapsedSeconds = Math.Max(activityTimer.Elapsed.TotalSeconds, 0.001);
+            var bytesPerSecond = Math.Max(0, currentBytes - activityBytes) / elapsedSeconds;
+            log.Write($"DOWNLOAD ativo {displayLabel}: {FormatBytes(currentBytes)} / {FormatBytes(totalBytes)} ({currentBytes * 100d / totalBytes:0.0}%) - {FormatBytes((long)bytesPerSecond)}/s");
+            activityBytes = currentBytes;
+            activityTimer.Restart();
+        }
+
         while (downloaded < totalBytes)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1881,7 +1911,7 @@ del /f /q "%~f0" >nul 2>nul
             {
                 try
                 {
-                    await DownloadRangeAsync(url, partPath, downloaded, chunkEnd, http, cancellationToken);
+                    await DownloadRangeAsync(url, partPath, downloaded, chunkEnd, http, cancellationToken, ReportDownloadActivity);
                     downloaded = new FileInfo(partPath).Length;
                     success = true;
                 }
@@ -1930,14 +1960,21 @@ del /f /q "%~f0" >nul 2>nul
         log.Write($"DOWNLOAD concluido {displayLabel}");
     }
 
-    private static async Task DownloadRangeAsync(string url, string partPath, long start, long end, HttpClient http, CancellationToken cancellationToken)
+    private static async Task DownloadRangeAsync(string url, string partPath, long start, long end, HttpClient http, CancellationToken cancellationToken, Action<long>? reportActivity = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Range = new RangeHeaderValue(start, end);
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var headersTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        headersTimeout.CancelAfter(DownloadHeadersTimeout);
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, headersTimeout.Token);
         if (response.StatusCode != System.Net.HttpStatusCode.PartialContent)
         {
             throw new HttpRequestException($"Servidor nao aceitou Range {start}-{end}: {(int)response.StatusCode} {response.ReasonPhrase}");
+        }
+        var contentRange = response.Content.Headers.ContentRange;
+        if (contentRange?.From != start || contentRange.To != end)
+        {
+            throw new HttpRequestException($"Servidor respondeu faixa inesperada para {start}-{end}: {contentRange}.");
         }
 
         await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -1945,15 +1982,20 @@ del /f /q "%~f0" >nul 2>nul
         output.Seek(start, SeekOrigin.Begin);
         var buffer = new byte[1024 * 128];
         var remaining = end - start + 1;
+        long written = 0;
         while (remaining > 0)
         {
-            var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)), cancellationToken);
+            using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            idleTimeout.CancelAfter(DownloadIdleTimeout);
+            var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)), idleTimeout.Token);
             if (read == 0)
             {
                 throw new IOException("Conexao encerrada antes de completar o bloco.");
             }
             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             remaining -= read;
+            written += read;
+            reportActivity?.Invoke(start + written);
         }
         output.SetLength(end + 1);
     }
@@ -2237,7 +2279,7 @@ internal sealed record PokeDogManifest(
     IReadOnlyList<ManifestFile> Files
 );
 
-internal sealed record InstallerUpdate(string Version, string Url, string Sha256);
+internal sealed record InstallerUpdate(string Version, string Url, string Sha256, long Size = 0);
 
 internal sealed record PayloadPackage(
     string Version,
