@@ -662,7 +662,7 @@ internal sealed record ManifestFile(
 
 internal static class InstallerPaths
 {
-    private const string RemoteManifestUrl = "https://raw.githubusercontent.com/JpAndreBTA/PokeDOG-Modpack-Installer/main/pokedog_manifest.json";
+    private const string RemoteManifestUrl = "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/raw/refs/heads/main/pokedog_manifest.json";
 
     public static string FindDefaultManifest()
     {
