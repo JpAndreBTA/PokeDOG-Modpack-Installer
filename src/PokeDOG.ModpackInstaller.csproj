@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>PokeDOG-Modpack-Installer</AssemblyName>
     <RootNamespace>PokeDOG.ModpackInstaller</RootNamespace>
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -16,5 +16,9 @@
   <ItemGroup>
     <EmbeddedResource Include="pokedog_manifest.example.json" LogicalName="pokedog_manifest.default.json" />
     <EmbeddedResource Include="assets\pokedog.ico" LogicalName="pokedog.ico" />
+    <EmbeddedResource Include="assets\background.png" LogicalName="pokedog_background.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2739.15" />
   </ItemGroup>
 </Project>
