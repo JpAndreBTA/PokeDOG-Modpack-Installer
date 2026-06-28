@@ -1073,6 +1073,19 @@ internal static class InstallerEngine
         {
             await RemoveMissingManagedFilesAsync(payloadResult.ManagedFiles, payloadResult.ManagedRoots, targetRoot, backupRoot, options.DryRun, log, cancellationToken);
         }
+        else if (payloadResult == null && (manifest.Payload?.RemoveMissing ?? false))
+        {
+            var cleanupPayload = await FindPayloadForCleanupAsync(options.PayloadZip, manifest, targetRoot, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(cleanupPayload))
+            {
+                var inventory = await ReadPayloadInventoryAsync(cleanupPayload, manifest.Payload, log, cancellationToken);
+                await RemoveMissingManagedFilesAsync(inventory.ManagedFiles, inventory.ManagedRoots, targetRoot, backupRoot, options.DryRun, log, cancellationToken);
+            }
+            else
+            {
+                log.Write("Limpeza: payload em cache/local nao encontrado; limpeza de arquivos extras sera feita na proxima reparacao completa.");
+            }
+        }
 
         installState = await ApplyUpdatePackagesAsync(manifest, installState, targetRoot, backupRoot, http, options.DryRun, log, cancellationToken);
         await ApplyManagedFilesAsync(manifest, targetRoot, backupRoot, http, options.DryRun, payloadResult != null, log, cancellationToken);
@@ -1170,6 +1183,41 @@ internal static class InstallerEngine
         log.Write($"BAIXAR payload completo {payload.Version}");
         await DownloadPayloadWithMirrorsAsync(payload, cachedPayload, http, log, cancellationToken, 10, 45);
         return cachedPayload;
+    }
+
+    private static async Task<string?> FindPayloadForCleanupAsync(string localPayload, PokeDogManifest manifest, string targetRoot, CancellationToken cancellationToken)
+    {
+        var payload = manifest.Payload;
+        if (payload is not { Sha256.Length: > 0 })
+        {
+            return null;
+        }
+
+        var cacheName = $"cobbleverse_payload-{SanitizeFileName(payload.Version ?? "latest")}.zip";
+        var candidates = new[]
+        {
+            localPayload,
+            InstallerPaths.FindLocalPayloadMirror(payload),
+            Path.Combine(targetRoot, ".pokedog-cache", cacheName)
+        }
+        .Where(path => !string.IsNullOrWhiteSpace(path))
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in candidates)
+        {
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            var hash = await Sha256FileAsync(candidate, cancellationToken);
+            if (hash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static async Task DownloadPayloadWithMirrorsAsync(PayloadPackage payload, string cachedPayload, HttpClient http, IInstallerLog log, CancellationToken cancellationToken, int progressStart, int progressEnd)
@@ -1395,6 +1443,26 @@ del /f /q "%~f0" >nul 2>nul
             log.Write($"... mais {plannedUpdates - 40} arquivos seriam verificados/atualizados pelo payload.");
         }
         log.Write(dryRun ? $"Payload verificado: {plannedUpdates} arquivo(s) precisam instalar/atualizar." : $"Payload aplicado: {plannedUpdates} arquivo(s) instalados/atualizados.");
+        return new PayloadApplyResult(managedFiles, managedRoots);
+    }
+
+    private static async Task<PayloadApplyResult> ReadPayloadInventoryAsync(string zipPath, PayloadPackage? payload, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        log.Write($"Limpeza: usando inventario do payload {zipPath}");
+        using var archive = ZipFile.OpenRead(zipPath);
+        var managedRoots = NormalizeManagedRoots(payload?.ManagedRoots);
+        var managedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = NormalizeRelativePath(entry.FullName);
+            if (IsUnderManagedRoots(relativePath, managedRoots))
+            {
+                managedFiles.Add(NormalizeKey(relativePath));
+            }
+        }
+
         return new PayloadApplyResult(managedFiles, managedRoots);
     }
 
