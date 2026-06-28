@@ -1674,6 +1674,7 @@ del /f /q "%~f0" >nul 2>nul
             return;
         }
 
+        url = NormalizeDownloadUrl(url);
         var displayLabel = string.IsNullOrWhiteSpace(label) ? Path.GetFileName(destination) : label;
         if ((expectedSize ?? 0) >= ResumableDownloadThresholdBytes)
         {
