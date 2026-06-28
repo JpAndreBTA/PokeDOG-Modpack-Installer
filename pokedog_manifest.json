@@ -2,9 +2,9 @@
     "packVersion":  "pokedog-v2",
     "guardVersion":  "0.1.0",
     "installer":  {
-                      "version":  "0.1.6",
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.6/PokeDOG-Modpack-Installer.exe",
-                      "sha256":  "394a1c1c982f0eabd1de36810d217da244727cdc23eb0d0aa1c799ffb099d4e2"
+                      "version":  "0.1.7",
+                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.7/PokeDOG-Modpack-Installer.exe",
+                      "sha256":  "cda36948593d8f8219ec64c8f54704435e91a3e61bb877a968cbfed972870af2"
                   },
     "payload":  {
                     "version":  "pokedog-v2-20260628",
@@ -24,7 +24,7 @@
                       "path":  "mods/pokedog-client-guard-0.1.0.jar",
                       "sha256":  "595860ee819d11fa98f8b13b1118fabcee57cd6bbd32dfbbe7d1117dc21edb87",
                       "size":  37422,
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.6/pokedog-client-guard-0.1.0.jar",
+                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.7/pokedog-client-guard-0.1.0.jar",
                       "policy":  "required"
                   }
               ]

@@ -260,8 +260,8 @@ internal sealed class WebInstallerForm : Form
     ::-webkit-scrollbar-thumb { background: #FACC15; border: 2px solid #090b11; }
     body { background: #07090f; overflow: hidden; user-select: none; }
     .bg-world { background-image: url('__BG__'), radial-gradient(circle at top, #141926 0%, #05070a 100%); filter: brightness(.35) contrast(1.1) blur(3px); transform: scale(1.03); }
-    .pixel-border { border: 3px solid #000; }
-    .pixel-shadow { box-shadow: 4px 4px 0 0 #000; }
+    .pixel-border { border: 0; }
+    .pixel-shadow { box-shadow: none; }
     .step { transition: opacity .22s ease, transform .22s ease; }
     .hidden-step { display: none; }
     .folder-input { min-width: 0; overflow: hidden; text-overflow: clip; white-space: nowrap; }
@@ -292,10 +292,12 @@ internal sealed class WebInstallerForm : Form
     .cursor-pointer { cursor: pointer; } .cursor-not-allowed { cursor: not-allowed; }
     .bg-gradient-to-r { background: linear-gradient(90deg, #E13030, #FACC15); } .bg-gradient-to-br { background: linear-gradient(135deg, #10b981, #059669); }
     .drop-shadow-\[0_2px_0px_\#000\] { text-shadow: 0 2px 0 #000; }
-    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; position: relative; color: #f1f5f9; font-family: 'Plus Jakarta Sans', Segoe UI, sans-serif; overflow: hidden; }
-    main { width: 100%; max-width: 672px; min-height: 540px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 10; overflow: hidden; background: rgba(14,18,29,.95); border-radius: 8px; }
-    header { padding: 24px 24px 0; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 0 0 auto; }
-    section { padding: 12px 40px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+    html, body { margin: 0 !important; width: 100vw !important; height: 100vh !important; min-height: 100vh !important; padding: 0 !important; overflow: hidden !important; background: #0e121d; }
+    body { display: flex; align-items: stretch; justify-content: stretch; position: relative; color: #f1f5f9; font-family: 'Plus Jakarta Sans', Segoe UI, sans-serif; }
+    main { width: 100vw; max-width: none; min-height: 100vh; max-height: none; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 10; overflow: hidden; background: rgba(14,18,29,.96); border-radius: 0; }
+    #app-main { width: 100vw !important; max-width: none !important; min-height: 100vh !important; max-height: none !important; border-radius: 0 !important; margin: 0 !important; }
+    header { padding: 26px 24px 0; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 0 0 auto; }
+    section { padding: 12px 52px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
     footer { padding: 16px 20px; background: rgba(2,6,23,.6); border-top: 2px solid #0f172a; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: 0 0 auto; }
     input { min-width: 0; }
     button { border: 2px solid #020617; font-family: 'Silkscreen', Consolas, monospace; }
@@ -303,25 +305,24 @@ internal sealed class WebInstallerForm : Form
     button:disabled { opacity: .3; pointer-events: none; }
     #terminal-logs { background: #020617; color: #94a3b8; }
     #view-step-2 #terminal-logs { height: min(10rem, 24vh); }
-    #view-step-1 .bg-slate-950\/80 { max-width: 510px; }
+    #view-step-1 .bg-slate-950\/80 { max-width: 580px; }
     #view-step-1 button { white-space: nowrap; }
-    #input-folder { min-width: 220px; }
+    #input-folder { min-width: 285px; }
+    .download-stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding-top: 8px; border-top: 1px solid rgba(15,23,42,.8); }
+    .stage-pill { min-width: 0; padding: 7px 6px; border: 2px solid #0f172a; border-radius: 4px; background: #07090f; color: #64748b; font-family: 'Silkscreen', Consolas, monospace; font-size: 9px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stage-pill.active { color: #FACC15; border-color: #FACC15; box-shadow: 0 0 0 1px rgba(250,204,21,.2) inset; }
+    .stage-pill.done { color: #34d399; border-color: rgba(52,211,153,.55); }
     #toast-notification { transform: translateY(80px); }
     #toast-notification.translate-y-0 { transform: translateY(0); }
     #toast-notification.translate-y-20 { transform: translateY(80px); }
     @media (max-height: 680px) { header { padding-top: 18px; } section { padding-top: 8px; padding-bottom: 8px; } footer { padding-top: 12px; padding-bottom: 12px; } .w-16.h-16 { width: 3.25rem; height: 3.25rem; } #view-step-2 #terminal-logs { height: 8.5rem; } }
+    @media (max-width: 760px) { section { padding-left: 32px; padding-right: 32px; } #input-folder { min-width: 220px; } .download-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 640px) { section { padding-left: 24px; padding-right: 24px; } footer { flex-direction: column; } }
   </style>
 </head>
 <body class="text-gray-100 font-sans min-h-screen flex items-center justify-center p-4 relative">
   <div class="absolute inset-0 z-0 bg-cover bg-center bg-world"></div>
-  <main class="w-full max-w-2xl bg-launcherDark/95 rounded-lg pixel-border pixel-shadow z-10 overflow-hidden relative flex flex-col min-h-[560px] justify-between">
-    <div class="absolute top-4 right-4 z-20">
-      <button onclick="send('close')" class="w-7 h-7 flex items-center justify-center rounded bg-slate-950 border border-slate-800 text-slate-500 hover:text-white hover:bg-pokeRed transition-colors">
-        <i class="fa-solid fa-xmark text-xs"></i>
-      </button>
-    </div>
-
+  <main id="app-main" class="w-full max-w-2xl bg-launcherDark/95 rounded-lg pixel-border pixel-shadow z-10 overflow-hidden relative flex flex-col min-h-[560px] justify-between">
     <header class="pt-8 px-6 flex flex-col items-center text-center">
       <div class="flex flex-col items-center gap-2 cursor-pointer select-none mb-3 group" onclick="playBeep(600,100)">
         <svg class="w-16 h-16 transform transition-transform group-hover:scale-105 duration-300" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -414,6 +415,13 @@ internal sealed class WebInstallerForm : Form
             <div class="text-left"><span class="block text-slate-500 text-[10px] font-silkscreen">Origem</span><span id="dl-speed" class="text-sm font-bold text-white">GitHub/Local</span></div>
             <div class="text-right"><span class="block text-slate-500 text-[10px] font-silkscreen">Anticheat</span><span class="text-sm font-bold text-emerald-400">Guard Ativo</span></div>
           </div>
+          <div class="download-stages">
+            <div id="stage-manifest" class="stage-pill">Manifesto</div>
+            <div id="stage-updater" class="stage-pill">Atualizador</div>
+            <div id="stage-payload" class="stage-pill">Cobbleverse</div>
+            <div id="stage-files" class="stage-pill">Arquivos</div>
+            <div id="stage-clean" class="stage-pill">Limpeza</div>
+          </div>
         </div>
       </div>
 
@@ -505,13 +513,32 @@ internal sealed class WebInstallerForm : Form
       send('verify');
     }
     function startInstall() {
-      isInstalling = true; setProgress(0); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...'; send('install');
+      isInstalling = true; setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...'; send('install');
     }
     function setProgress(percent) {
       const p = Math.max(0, Math.min(100, Number(percent || 0)));
       document.getElementById('dl-progress-bar').style.width = `${p}%`; document.getElementById('dl-percentage').innerText = `${Math.floor(p)}%`;
       document.getElementById('dl-loaded-mb').innerText = `${((payloadMb * p) / 100).toFixed(1)} MB / ${payloadMb.toFixed(1)} MB`;
       document.getElementById('dl-eta').innerText = p >= 100 ? 'Finalizando...' : 'Calculando...';
+    }
+    function setStage(stage) {
+      const order = ['manifest','updater','payload','files','clean'];
+      const index = order.indexOf(stage);
+      for (let i = 0; i < order.length; i++) {
+        const node = document.getElementById(`stage-${order[i]}`);
+        if (!node) continue;
+        node.classList.toggle('done', index > i);
+        node.classList.toggle('active', index === i);
+      }
+    }
+    function updateInstallStatus(line) {
+      const text = line || '';
+      if (/manifesto/i.test(text)) setStage('manifest');
+      if (/Nova versao|auto-update|atualizador|instalador atualizado/i.test(text)) setStage('updater');
+      if (/payload|Cobbleverse|cobbleverse/i.test(text)) setStage('payload');
+      if (/ATUALIZAR|VERIFICAR|BAIXAR mods|mods\\|mods\//i.test(text)) setStage('files');
+      if (/REMOVER|Limpeza/i.test(text)) setStage('clean');
+      if (activeStep === 3) document.getElementById('dl-current-file').innerText = text;
     }
     function setFolderValue(folder) {
       const input = document.getElementById('input-folder');
@@ -524,8 +551,8 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
       if (msg.type === 'folder') { setFolderValue(msg.folder); showToast('Sucesso', 'Pasta do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
-      if (msg.type === 'installStarted') { appendLog('Instalacao real iniciada.', 'text-slate-300'); document.getElementById('dl-current-file').innerText = 'Aplicando payload, mods, configs e Client Guard...'; return; }
-      if (msg.type === 'log') { appendLog(msg.line || '', /BAIXAR|ATUALIZAR|REMOVER|Nova versao/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); if (activeStep === 3) document.getElementById('dl-current-file').innerText = msg.line || ''; return; }
+      if (msg.type === 'installStarted') { appendLog('Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = 'Baixando manifesto e preparando dependencias...'; return; }
+      if (msg.type === 'log') { appendLog(msg.line || '', /BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { setProgress(msg.percent); return; }
       if (msg.type === 'verified') { isVerified = true; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
       if (msg.type === 'installed') { isInstalling = false; setProgress(100); document.getElementById('dl-current-file').innerText = 'Instalacao finalizada.'; playSuccessChime(); setTimeout(()=>goToStep(4), 450); return; }
@@ -864,7 +891,8 @@ internal static class InstallerEngine
                 var localHash = await Sha256FileAsync(localPayload, cancellationToken);
                 if (localHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    log.Write($"Payload local valido: {localPayload}");
+                    log.Write($"Cobbleverse local valido: {localPayload}");
+                    log.ReportProgress(45);
                     return localPayload;
                 }
 
@@ -876,7 +904,8 @@ internal static class InstallerEngine
             }
             else
             {
-                log.Write($"Payload local: {localPayload}");
+                log.Write($"Cobbleverse local: {localPayload}");
+                log.ReportProgress(45);
                 return localPayload;
             }
         }
@@ -894,21 +923,22 @@ internal static class InstallerEngine
             var cachedHash = await Sha256FileAsync(cachedPayload, cancellationToken);
             if (cachedHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                log.Write($"Payload em cache valido: {cachedPayload}");
+                log.Write($"Cobbleverse em cache valido: {cachedPayload}");
+                log.ReportProgress(45);
                 return cachedPayload;
             }
         }
 
         if (dryRun)
         {
-            log.Write($"Payload remoto disponivel: {payload.Url}");
+            log.Write($"Cobbleverse remoto disponivel: {payload.Url}");
             log.Write("DRY DOWNLOAD payload completo sera baixado na instalacao.");
             return null;
         }
 
         Directory.CreateDirectory(cacheDir);
         log.Write($"BAIXAR payload completo {payload.Version}");
-        await DownloadAndVerifyAsync(payload.Url, payload.Sha256, cachedPayload, http, false, log, cancellationToken);
+        await DownloadAndVerifyAsync(payload.Url, payload.Sha256, cachedPayload, http, false, log, cancellationToken, payload.Size, 10, 45, "Cobbleverse payload");
         return cachedPayload;
     }
 
@@ -918,16 +948,20 @@ internal static class InstallerEngine
         if (Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase))
         {
             log.Write($"Baixando manifesto: {source}");
+            log.ReportProgress(3);
             json = await http.GetStringAsync(uri, cancellationToken);
+            log.ReportProgress(8);
         }
         else if (!string.IsNullOrWhiteSpace(source) && File.Exists(source))
         {
             log.Write($"Manifesto local: {source}");
+            log.ReportProgress(8);
             json = await File.ReadAllTextAsync(source, cancellationToken);
         }
         else
         {
             log.Write("Manifesto local nao encontrado. Usando manifesto embutido do instalador.");
+            log.ReportProgress(8);
             await using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("pokedog_manifest.default.json")
                 ?? throw new FileNotFoundException("Manifesto local ausente e manifesto embutido nao encontrado.");
             using var reader = new StreamReader(stream, Encoding.UTF8);
@@ -947,6 +981,8 @@ internal static class InstallerEngine
         if (manifest.Installer is not { Url.Length: > 0, Sha256.Length: > 0 } installer ||
             !IsNewerVersion(installer.Version, thisVersion))
         {
+            log.Write("Atualizador: instalador ja esta atualizado.");
+            log.ReportProgress(10);
             return false;
         }
 
@@ -957,7 +993,7 @@ internal static class InstallerEngine
             throw new InvalidOperationException("Nao foi possivel localizar o executavel atual para auto-update.");
         }
         var destination = currentExe + ".update";
-        await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken);
+        await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken, null, 10, 25, "Atualizador do installer");
         if (dryRun)
         {
             return false;
@@ -994,6 +1030,7 @@ del /f /q "%~f0" >nul 2>nul
     private static async Task<PayloadApplyResult> ExtractPayloadAsync(string zipPath, string targetRoot, string backupRoot, PayloadPackage? payload, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         log.Write($"Payload local: {zipPath}");
+        log.ReportProgress(45);
         using var archive = ZipFile.OpenRead(zipPath);
         var files = archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)).ToList();
         var managedRoots = NormalizeManagedRoots(payload?.ManagedRoots);
@@ -1015,7 +1052,7 @@ del /f /q "%~f0" >nul 2>nul
             if (!needsUpdate)
             {
                 done++;
-                log.ReportProgress(done * 80 / Math.Max(1, files.Count));
+                log.ReportProgress(45 + done * 40 / Math.Max(1, files.Count));
                 continue;
             }
 
@@ -1034,7 +1071,7 @@ del /f /q "%~f0" >nul 2>nul
                 entry.ExtractToFile(destination, true);
             }
             done++;
-            log.ReportProgress(done * 80 / Math.Max(1, files.Count));
+            log.ReportProgress(45 + done * 40 / Math.Max(1, files.Count));
         }
         if (dryRun && plannedUpdates > 40)
         {
@@ -1047,6 +1084,8 @@ del /f /q "%~f0" >nul 2>nul
     private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
+        log.Write("Limpeza: verificando arquivos removidos do modpack.");
+        log.ReportProgress(88);
         var plannedRemovals = 0;
         foreach (var root in managedRoots)
         {
@@ -1090,6 +1129,7 @@ del /f /q "%~f0" >nul 2>nul
         {
             log.Write(dryRun ? $"Limpeza planejada: {plannedRemovals} arquivo(s) fora do payload." : $"Limpeza aplicada: {plannedRemovals} arquivo(s) fora do payload removidos com backup.");
         }
+        log.ReportProgress(92);
     }
 
     private static async Task ApplyManagedFilesAsync(PokeDogManifest manifest, string targetRoot, string backupRoot, HttpClient http, bool dryRun, bool payloadPresent, IInstallerLog log, CancellationToken cancellationToken)
@@ -1153,12 +1193,23 @@ del /f /q "%~f0" >nul 2>nul
             }
 
             var temp = destination + ".pokedog-download";
-            await DownloadAndVerifyAsync(file.Url, file.Sha256, temp, http, false, log, cancellationToken);
+            await DownloadAndVerifyAsync(file.Url, file.Sha256, temp, http, false, log, cancellationToken, file.Size, 92, 98, relativePath);
             File.Move(temp, destination, true);
         }
     }
 
-    private static async Task DownloadAndVerifyAsync(string url, string sha256, string destination, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task DownloadAndVerifyAsync(
+        string url,
+        string sha256,
+        string destination,
+        HttpClient http,
+        bool dryRun,
+        IInstallerLog log,
+        CancellationToken cancellationToken,
+        long? expectedSize = null,
+        int progressStart = 0,
+        int progressEnd = 0,
+        string? label = null)
     {
         if (dryRun)
         {
@@ -1166,10 +1217,44 @@ del /f /q "%~f0" >nul 2>nul
             return;
         }
 
-        await using (var input = await http.GetStreamAsync(url, cancellationToken))
+        var displayLabel = string.IsNullOrWhiteSpace(label) ? Path.GetFileName(destination) : label;
+        log.Write($"DOWNLOAD iniciando {displayLabel}");
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var totalBytes = response.Content.Headers.ContentLength ?? expectedSize ?? 0;
+        await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
         await using (var output = File.Create(destination))
         {
-            await input.CopyToAsync(output, cancellationToken);
+            var buffer = new byte[1024 * 128];
+            long downloaded = 0;
+            var lastLoggedPercent = -1;
+            while (true)
+            {
+                var read = await input.ReadAsync(buffer, cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                downloaded += read;
+                if (totalBytes <= 0)
+                {
+                    continue;
+                }
+
+                var percent = (int)Math.Floor(downloaded * 100d / totalBytes);
+                if (progressEnd > progressStart)
+                {
+                    log.ReportProgress(progressStart + percent * (progressEnd - progressStart) / 100);
+                }
+
+                if (percent >= lastLoggedPercent + 10 || percent == 100)
+                {
+                    lastLoggedPercent = percent;
+                    log.Write($"DOWNLOAD {displayLabel}: {FormatBytes(downloaded)} / {FormatBytes(totalBytes)} ({percent}%)");
+                }
+            }
         }
 
         var actual = await Sha256FileAsync(destination, cancellationToken);
@@ -1178,6 +1263,11 @@ del /f /q "%~f0" >nul 2>nul
             File.Delete(destination);
             throw new InvalidOperationException($"Hash invalido para {url}. Esperado {sha256}, recebido {actual}.");
         }
+        if (progressEnd > progressStart)
+        {
+            log.ReportProgress(progressEnd);
+        }
+        log.Write($"DOWNLOAD concluido {displayLabel}");
     }
 
     private static void BackupFile(string file, string backupRoot, string targetRoot)
@@ -1259,6 +1349,19 @@ del /f /q "%~f0" >nul 2>nul
             builder.Append(invalid.Contains(ch) ? '_' : ch);
         }
         return builder.Length == 0 ? "latest" : builder.ToString();
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        var value = (double)bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return $"{value:0.0} {units[unit]}";
     }
 
     private static bool IsNewerVersion(string candidate, string current)
