@@ -34,8 +34,8 @@
     "files":  [
                   {
                       "path":  "mods/pokedog-client-guard-0.1.0.jar",
-                      "sha256":  "9de9ee2b9192525032616bf8a77a356b9cf07d9a2739e6828f15bad2d2409ab6",
-                      "size":  43341,
+                      "sha256":  "457ec245fe3f10fdbf24f391e137598ec7cdca1d0d5ac74fb9f4bc6df7c864f8",
+                      "size":  44533,
                       "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
                       "policy":  "required"
                   },
