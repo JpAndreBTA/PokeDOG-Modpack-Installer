@@ -57,6 +57,7 @@ internal sealed class WebInstallerForm : Form
     private readonly WebView2 _web = new();
     private readonly CancellationTokenSource _disposeToken = new();
     private bool _busy;
+    private bool _fallbackOpened;
 
     public WebInstallerForm()
     {
@@ -77,7 +78,14 @@ internal sealed class WebInstallerForm : Form
     {
         try
         {
-            await _web.EnsureCoreWebView2Async();
+            var userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "PokeDOG",
+                "ModpackInstaller",
+                "WebView2");
+            Directory.CreateDirectory(userDataFolder);
+            var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+            await _web.EnsureCoreWebView2Async(environment);
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             _web.CoreWebView2.Settings.AreDevToolsEnabled = false;
             _web.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
@@ -85,13 +93,34 @@ internal sealed class WebInstallerForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                "Nao foi possivel abrir a interface moderna do PokeDOG Installer.\n\n" + ex.Message,
-                "PokeDOG Modpack Installer",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            Close();
+            OpenCompatibilityMode(ex);
         }
+    }
+
+    private void OpenCompatibilityMode(Exception ex)
+    {
+        if (_fallbackOpened)
+        {
+            return;
+        }
+        _fallbackOpened = true;
+        MessageBox.Show(
+            "Nao foi possivel abrir a interface moderna do PokeDOG Installer.\n\n"
+            + ex.Message
+            + "\n\nAbrindo o modo de compatibilidade para permitir instalar/atualizar mesmo assim.",
+            "PokeDOG Modpack Installer",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+        var fallback = new InstallerForm();
+        fallback.FormClosed += (_, _) =>
+        {
+            if (!IsDisposed)
+            {
+                Close();
+            }
+        };
+        Hide();
+        fallback.Show(this);
     }
 
     private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -174,10 +203,19 @@ internal sealed class WebInstallerForm : Form
         await SendAsync(new { type = dryRun ? "verifyStarted" : "installStarted" });
         try
         {
+            var installerUpdated = false;
             var options = new InstallerOptions(InstallerPaths.FindDefaultManifest(), target, dryRun, InstallerPaths.FindDefaultPayload());
-            var log = new WebProgressLog(line => _ = SendAsync(new { type = "log", line }), percent => _ = SendAsync(new { type = "progress", percent }));
+            var log = new WebProgressLog(line =>
+            {
+                if (line.Contains("Instalador atualizado", StringComparison.OrdinalIgnoreCase)
+                    || line.Contains("Auto-update agendado", StringComparison.OrdinalIgnoreCase))
+                {
+                    installerUpdated = true;
+                }
+                _ = SendAsync(new { type = "log", line });
+            }, percent => _ = SendAsync(new { type = "progress", percent }));
             await InstallerEngine.RunAsync(options, log, _disposeToken.Token);
-            await SendAsync(new { type = dryRun ? "verified" : "installed" });
+            await SendAsync(new { type = dryRun ? "verified" : "installed", installerUpdated });
         }
         catch (OperationCanceledException)
         {
@@ -446,6 +484,10 @@ internal sealed class WebInstallerForm : Form
         <div class="max-w-md mx-auto space-y-3">
           <div class="relative w-12 h-12 mx-auto flex items-center justify-center"><div class="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-75"></div><div class="relative w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 border-2 border-slate-950 rounded flex items-center justify-center shadow-lg"><i class="fa-solid fa-check text-white text-md"></i></div></div>
           <div class="space-y-1"><h2 class="font-pixel text-sm text-white tracking-wide">Tudo Pronto!</h2><p id="done-message" class="text-xs text-slate-400">O modpack PokeDOG foi instalado e atualizado no seu diretorio de jogo.</p></div>
+          <div id="installer-update-alert" class="hidden bg-pokeYellow text-slate-950 p-3 rounded border-2 border-slate-950 text-left max-w-sm mx-auto">
+            <div class="font-silkscreen text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-rotate"></i><span>Instalador atualizado</span></div>
+            <p class="font-terminal text-sm mt-1">Feche esta janela. O PokeDOG-Modpack-Installer sera atualizado e aberto novamente; clique em Instalar/Atualizar outra vez para concluir os mods.</p>
+          </div>
           <div class="bg-slate-950/80 p-3 rounded-lg border-2 border-slate-900 space-y-1 text-left max-w-xs mx-auto font-terminal text-xs text-slate-400">
             <div class="flex justify-between"><span class="font-silkscreen text-[9px] text-slate-500">MODPACK:</span><span class="text-emerald-400 font-bold">PokeDOG v2</span></div>
             <div class="flex justify-between"><span class="font-silkscreen text-[9px] text-slate-500">STATUS:</span><span class="text-slate-300">Sincronizado</span></div>
@@ -591,7 +633,22 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'log') { appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { setProgress(msg.percent); return; }
       if (msg.type === 'verified') { isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
-      if (msg.type === 'installed') { isInstalling = false; setProgress(100); document.getElementById('dl-current-file').innerText = 'Instalacao finalizada.'; playSuccessChime(); setTimeout(()=>goToStep(4), 450); return; }
+      if (msg.type === 'installed') {
+        isInstalling = false;
+        setProgress(100);
+        const installerUpdated = !!msg.installerUpdated;
+        document.getElementById('dl-current-file').innerText = installerUpdated ? 'Instalador atualizado. Reabra para concluir.' : 'Instalacao finalizada.';
+        document.getElementById('done-message').innerText = installerUpdated
+          ? 'O PokeDOG-Modpack-Installer foi atualizado antes de continuar a instalacao do modpack.'
+          : 'O modpack PokeDOG foi instalado e atualizado no seu diretorio de jogo.';
+        document.getElementById('installer-update-alert').classList.toggle('hidden', !installerUpdated);
+        if (installerUpdated) {
+          showToast('Instalador atualizado!', 'Feche e abra novamente para concluir a instalacao.', 'fa-solid fa-rotate text-pokeYellow');
+        }
+        playSuccessChime();
+        setTimeout(()=>goToStep(4), 450);
+        return;
+      }
       if (msg.type === 'toast') { showToast(msg.title || 'Aviso', msg.message || '', 'fa-solid fa-bell text-pokeYellow'); return; }
       if (msg.type === 'error') { isInstalling = false; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; appendLog('ERRO: ' + (msg.message || 'falha desconhecida'), 'text-pokeRed font-bold'); showToast('Erro', msg.message || 'Falha desconhecida.', 'fa-solid fa-triangle-exclamation text-pokeRed'); }
     };
@@ -750,12 +807,29 @@ internal sealed class InstallerForm : Form
                 _targetBox.Text.Trim(),
                 dryRun,
                 _payloadBox.Text.Trim());
-            var log = new FormProgressLog(AppendLog, value =>
+            var installerUpdated = false;
+            var log = new FormProgressLog(line =>
+            {
+                if (line.Contains("Instalador atualizado", StringComparison.OrdinalIgnoreCase)
+                    || line.Contains("Auto-update agendado", StringComparison.OrdinalIgnoreCase))
+                {
+                    installerUpdated = true;
+                }
+                AppendLog(line);
+            }, value =>
             {
                 _progressBar.Value = Math.Max(0, Math.Min(100, value));
             });
             await InstallerEngine.RunAsync(options, log, _disposeToken.Token);
             AppendLog(dryRun ? "Verificacao concluida." : "Instalacao/atualizacao concluida.");
+            if (installerUpdated)
+            {
+                MessageBox.Show(this,
+                    "O PokeDOG-Modpack-Installer foi atualizado. Feche esta janela, abra o instalador novamente e clique em Instalar/Atualizar para concluir os mods.",
+                    "Instalador atualizado",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
         }
         catch (Exception ex)
         {
@@ -1366,8 +1440,7 @@ internal static class InstallerEngine
             return false;
         }
         ScheduleSelfReplace(currentExe, destination, log);
-        log.Write("Instalador atualizado. Reiniciando para aplicar a nova versao.");
-        Environment.Exit(0);
+        log.Write("Instalador atualizado. Feche esta janela e abra o PokeDOG-Modpack-Installer novamente para concluir com a nova versao.");
         return true;
     }
 
@@ -1376,8 +1449,14 @@ internal static class InstallerEngine
         var script = Path.Combine(Path.GetTempPath(), "pokedog-installer-self-update-" + Guid.NewGuid().ToString("N") + ".cmd");
         var content = $"""
 @echo off
-timeout /t 2 /nobreak >nul
-copy /y "{updateExe}" "{currentExe}" >nul
+set "POKEDOG_UPDATE={updateExe}"
+set "POKEDOG_CURRENT={currentExe}"
+for /l %%i in (1,1,120) do (
+  copy /y "%POKEDOG_UPDATE%" "%POKEDOG_CURRENT%" >nul 2>nul && goto copied
+  timeout /t 1 /nobreak >nul
+)
+exit /b 1
+:copied
 del /f /q "{updateExe}" >nul 2>nul
 start "" "{currentExe}"
 del /f /q "%~f0" >nul 2>nul
