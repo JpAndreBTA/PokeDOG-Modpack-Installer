@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -1020,6 +1021,10 @@ internal static class MinecraftInstanceLocator
 
 internal static class InstallerEngine
 {
+    private const long ResumableDownloadThresholdBytes = 64L * 1024 * 1024;
+    private const int DownloadChunkBytes = 8 * 1024 * 1024;
+    private const int DownloadMaxAttempts = 5;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -1030,7 +1035,7 @@ internal static class InstallerEngine
 
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
         var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
@@ -1565,6 +1570,12 @@ del /f /q "%~f0" >nul 2>nul
         }
 
         var displayLabel = string.IsNullOrWhiteSpace(label) ? Path.GetFileName(destination) : label;
+        if ((expectedSize ?? 0) >= ResumableDownloadThresholdBytes)
+        {
+            await DownloadResumableAsync(url, sha256, destination, http, log, cancellationToken, expectedSize, progressStart, progressEnd, displayLabel);
+            return;
+        }
+
         log.Write($"DOWNLOAD iniciando {displayLabel}");
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -1615,6 +1626,141 @@ del /f /q "%~f0" >nul 2>nul
             log.ReportProgress(progressEnd);
         }
         log.Write($"DOWNLOAD concluido {displayLabel}");
+    }
+
+    private static async Task DownloadResumableAsync(
+        string url,
+        string sha256,
+        string destination,
+        HttpClient http,
+        IInstallerLog log,
+        CancellationToken cancellationToken,
+        long? expectedSize,
+        int progressStart,
+        int progressEnd,
+        string displayLabel)
+    {
+        var partPath = destination + ".part";
+        var totalBytes = expectedSize ?? await GetRemoteContentLengthAsync(url, http, cancellationToken);
+        if (totalBytes <= 0)
+        {
+            throw new InvalidOperationException($"Nao foi possivel descobrir o tamanho de {displayLabel} para download retomavel.");
+        }
+
+        if (!File.Exists(partPath) && File.Exists(destination))
+        {
+            var existingSize = new FileInfo(destination).Length;
+            if (existingSize > 0 && existingSize < totalBytes)
+            {
+                File.Move(destination, partPath, true);
+            }
+        }
+
+        var downloaded = File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
+        if (downloaded > totalBytes)
+        {
+            File.Delete(partPath);
+            downloaded = 0;
+        }
+
+        log.Write(downloaded > 0
+            ? $"DOWNLOAD retomando {displayLabel}: {FormatBytes(downloaded)} / {FormatBytes(totalBytes)}"
+            : $"DOWNLOAD iniciando {displayLabel} em blocos retomaveis");
+
+        var lastLoggedPercent = totalBytes > 0 ? (int)Math.Floor(downloaded * 100d / totalBytes) - 10 : -1;
+        while (downloaded < totalBytes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var chunkEnd = Math.Min(downloaded + DownloadChunkBytes - 1, totalBytes - 1);
+            var success = false;
+            Exception? lastError = null;
+
+            for (var attempt = 1; attempt <= DownloadMaxAttempts && !success; attempt++)
+            {
+                try
+                {
+                    await DownloadRangeAsync(url, partPath, downloaded, chunkEnd, http, cancellationToken);
+                    downloaded = new FileInfo(partPath).Length;
+                    success = true;
+                }
+                catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+                {
+                    lastError = ex;
+                    if (File.Exists(partPath))
+                    {
+                        downloaded = Math.Min(new FileInfo(partPath).Length, totalBytes);
+                    }
+                    log.Write($"DOWNLOAD {displayLabel}: tentativa {attempt}/{DownloadMaxAttempts} falhou no bloco {FormatBytes(downloaded)}. Retentando...");
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Min(2 * attempt, 10)), cancellationToken);
+                }
+            }
+
+            if (!success)
+            {
+                throw new IOException($"Falha ao baixar {displayLabel} apos {DownloadMaxAttempts} tentativas. O arquivo parcial foi preservado para retomar depois.", lastError);
+            }
+
+            var percent = (int)Math.Floor(downloaded * 100d / totalBytes);
+            if (progressEnd > progressStart)
+            {
+                log.ReportProgress(progressStart + percent * (progressEnd - progressStart) / 100);
+            }
+
+            if (percent >= lastLoggedPercent + 5 || percent == 100)
+            {
+                lastLoggedPercent = percent;
+                log.Write($"DOWNLOAD {displayLabel}: {FormatBytes(downloaded)} / {FormatBytes(totalBytes)} ({percent}%)");
+            }
+        }
+
+        File.Move(partPath, destination, true);
+        var actual = await Sha256FileAsync(destination, cancellationToken);
+        if (!actual.Equals(sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            File.Delete(destination);
+            throw new InvalidOperationException($"Hash invalido para {url}. Esperado {sha256}, recebido {actual}.");
+        }
+
+        if (progressEnd > progressStart)
+        {
+            log.ReportProgress(progressEnd);
+        }
+        log.Write($"DOWNLOAD concluido {displayLabel}");
+    }
+
+    private static async Task DownloadRangeAsync(string url, string partPath, long start, long end, HttpClient http, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Range = new RangeHeaderValue(start, end);
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (response.StatusCode != System.Net.HttpStatusCode.PartialContent)
+        {
+            throw new HttpRequestException($"Servidor nao aceitou Range {start}-{end}: {(int)response.StatusCode} {response.ReasonPhrase}");
+        }
+
+        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var output = new FileStream(partPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read);
+        output.Seek(start, SeekOrigin.Begin);
+        var buffer = new byte[1024 * 128];
+        var remaining = end - start + 1;
+        while (remaining > 0)
+        {
+            var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)), cancellationToken);
+            if (read == 0)
+            {
+                throw new IOException("Conexao encerrada antes de completar o bloco.");
+            }
+            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            remaining -= read;
+        }
+        output.SetLength(end + 1);
+    }
+
+    private static async Task<long> GetRemoteContentLengthAsync(string url, HttpClient http, CancellationToken cancellationToken)
+    {
+        using var response = await http.SendAsync(new HttpRequestMessage(HttpMethod.Head, url), HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return response.Content.Headers.ContentLength ?? 0;
     }
 
     private static void BackupFile(string file, string backupRoot, string targetRoot)
