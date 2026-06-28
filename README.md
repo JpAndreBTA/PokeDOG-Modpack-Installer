@@ -21,3 +21,4 @@ Quando o manifesto remoto tiver uma versao maior em `installer.version`, o insta
 ```powershell
 dotnet publish src\PokeDOG.ModpackInstaller.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
+

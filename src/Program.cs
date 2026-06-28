@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -329,7 +330,10 @@ internal static class InstallerEngine
             Directory.CreateDirectory(targetRoot);
         }
 
-        await MaybeUpdateInstallerAsync(manifest, thisVersion, targetRoot, http, options.DryRun, log, cancellationToken);
+        if (await MaybeUpdateInstallerAsync(manifest, thisVersion, targetRoot, http, options.DryRun, log, cancellationToken))
+        {
+            return;
+        }
 
         var payloadPresent = !string.IsNullOrWhiteSpace(options.PayloadZip) && File.Exists(options.PayloadZip);
         if (payloadPresent)
@@ -375,18 +379,53 @@ internal static class InstallerEngine
         return manifest;
     }
 
-    private static async Task MaybeUpdateInstallerAsync(PokeDogManifest manifest, string thisVersion, string targetRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<bool> MaybeUpdateInstallerAsync(PokeDogManifest manifest, string thisVersion, string targetRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         if (manifest.Installer is not { Url.Length: > 0, Sha256.Length: > 0 } installer ||
             !IsNewerVersion(installer.Version, thisVersion))
         {
-            return;
+            return false;
         }
 
         log.Write($"Nova versao do instalador disponivel: {installer.Version}");
-        var destination = Path.Combine(targetRoot, "PokeDOG-Modpack-Installer.update");
+        var currentExe = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
+        {
+            throw new InvalidOperationException("Nao foi possivel localizar o executavel atual para auto-update.");
+        }
+        var destination = currentExe + ".update";
         await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken);
-        log.Write("Instalador novo baixado como PokeDOG-Modpack-Installer.update.");
+        if (dryRun)
+        {
+            return false;
+        }
+        ScheduleSelfReplace(currentExe, destination, log);
+        log.Write("Instalador atualizado. Reiniciando para aplicar a nova versao.");
+        Environment.Exit(0);
+        return true;
+    }
+
+    private static void ScheduleSelfReplace(string currentExe, string updateExe, IInstallerLog log)
+    {
+        var script = Path.Combine(Path.GetTempPath(), "pokedog-installer-self-update-" + Guid.NewGuid().ToString("N") + ".cmd");
+        var content = $"""
+@echo off
+timeout /t 2 /nobreak >nul
+copy /y "{updateExe}" "{currentExe}" >nul
+del /f /q "{updateExe}" >nul 2>nul
+start "" "{currentExe}"
+del /f /q "%~f0" >nul 2>nul
+""";
+        File.WriteAllText(script, content, Encoding.ASCII);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "cmd.exe",
+            Arguments = "/c \"" + script + "\"",
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            WindowStyle = ProcessWindowStyle.Hidden
+        });
+        log.Write("Auto-update agendado para substituir o executavel apos fechar.");
     }
 
     private static async Task ExtractPayloadAsync(string zipPath, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
