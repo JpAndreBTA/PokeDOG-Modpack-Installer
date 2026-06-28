@@ -666,11 +666,7 @@ internal static class InstallerPaths
 
     public static string FindDefaultManifest()
     {
-        return FirstExistingOrRemote(
-            Path.Combine(AppContext.BaseDirectory, "pokedog_manifest.json"),
-            Path.Combine(AppContext.BaseDirectory, "PokeDOG", "pokedog_manifest.json"),
-            Path.Combine(AppContext.BaseDirectory, "PokeDOG", "PokeDOG_Cliente", "pokedog_manifest.json"),
-            Path.Combine(AppContext.BaseDirectory, "tools", "pokedog-modpack-installer", "pokedog_manifest.example.json"));
+        return RemoteManifestUrl;
     }
 
     public static string FindDefaultPayload()

@@ -23,3 +23,4 @@ dotnet publish src\PokeDOG.ModpackInstaller.csproj -c Release -r win-x64 --self-
 ```
 
 
+
