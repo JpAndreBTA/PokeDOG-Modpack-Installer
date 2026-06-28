@@ -5,7 +5,7 @@
                       "displayVersion":  "v0.1.0",
                       "version":  "0.1.0",
                       "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/PokeDOG-Modpack-Installer.exe",
-                      "sha256":  "5e2df82c9235d41954c21f12b5988713d2a4f29a5013ccaa1db904afbf4732c8"
+                      "sha256":  "d1a147c58d38a45646b7ab9a7ef811b2b29fd61a7e212c976237c586062a5be7"
                   },
     "payload":  {
                     "version":  "pokedog-v2-20260628",
@@ -17,19 +17,29 @@
                                 ],
                     "managedRoots":  [
                                          "mods",
-                                         "config",
                                          "resourcepacks",
                                          "shaderpacks"
                                      ],
                     "removeMissing":  true
                 },
     "updatePackages":  [
+                           {
+                               "version":  "pokedog-v2-remove-authme-26.2-20260628",
+                               "url":  "",
+                               "sha256":  "",
+                               "size":  0,
+                               "files":  [
+                                         ],
+                               "removes":  [
+                                               "mods/authme-fabric-9.3.0+26.2.jar"
+                                           ]
+                           }
                        ],
     "files":  [
                   {
                       "path":  "mods/pokedog-client-guard-0.1.0.jar",
-                      "sha256":  "595860ee819d11fa98f8b13b1118fabcee57cd6bbd32dfbbe7d1117dc21edb87",
-                      "size":  37422,
+                      "sha256":  "401cc7a1d1ada5819dea1d8e99886d88c00ae13b8092b61dfadd64814c7038c1",
+                      "size":  37566,
                       "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
                       "policy":  "required"
                   }

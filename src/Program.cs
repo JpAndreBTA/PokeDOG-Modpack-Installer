@@ -1402,6 +1402,7 @@ del /f /q "%~f0" >nul 2>nul
         var managedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var done = 0;
         var plannedUpdates = 0;
+        var preservedUserFiles = 0;
         foreach (var entry in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1413,6 +1414,13 @@ del /f /q "%~f0" >nul 2>nul
 
             var destination = Path.Combine(targetRoot, relativePath);
             EnsureInsideRoot(destination, targetRoot);
+            if (IsUserOwnedRootFile(relativePath) || (File.Exists(destination) && IsUserConfigFile(relativePath)))
+            {
+                preservedUserFiles++;
+                done++;
+                log.ReportProgress(45 + done * 40 / Math.Max(1, files.Count));
+                continue;
+            }
             var needsUpdate = !File.Exists(destination) || await Sha256FileAsync(destination, cancellationToken) != await Sha256ZipEntryAsync(entry, cancellationToken);
             if (!needsUpdate)
             {
@@ -1442,8 +1450,28 @@ del /f /q "%~f0" >nul 2>nul
         {
             log.Write($"... mais {plannedUpdates - 40} arquivos seriam verificados/atualizados pelo payload.");
         }
+        if (preservedUserFiles > 0)
+        {
+            log.Write($"Dados do usuario preservados: {preservedUserFiles} arquivo(s) de configuracao/opcoes/lista de servidores.");
+        }
         log.Write(dryRun ? $"Payload verificado: {plannedUpdates} arquivo(s) precisam instalar/atualizar." : $"Payload aplicado: {plannedUpdates} arquivo(s) instalados/atualizados.");
         return new PayloadApplyResult(managedFiles, managedRoots);
+    }
+
+    private static bool IsUserOwnedRootFile(string relativePath)
+    {
+        var normalized = NormalizeKey(relativePath);
+        if (normalized.Contains('/'))
+        {
+            return false;
+        }
+        return normalized is "servers.dat" or "servers.dat_old" ||
+            (normalized.StartsWith("options", StringComparison.OrdinalIgnoreCase) && normalized.EndsWith(".txt", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsUserConfigFile(string relativePath)
+    {
+        return NormalizeKey(relativePath).StartsWith("config/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<PayloadApplyResult> ReadPayloadInventoryAsync(string zipPath, PayloadPackage? payload, IInstallerLog log, CancellationToken cancellationToken)
@@ -2014,6 +2042,8 @@ del /f /q "%~f0" >nul 2>nul
 
     private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(PokeDogManifest manifest, string targetRoot, CancellationToken cancellationToken)
     {
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
         var guard = manifest.Files?.FirstOrDefault(file =>
             file.Path.Contains("pokedog-client-guard", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(file.Sha256));
@@ -2024,8 +2054,7 @@ del /f /q "%~f0" >nul 2>nul
 
         var guardPath = Path.Combine(targetRoot, NormalizeRelativePath(guard.Path));
         EnsureInsideRoot(guardPath, targetRoot);
-        if (!File.Exists(guardPath) ||
-            !string.Equals(await Sha256FileAsync(guardPath, cancellationToken), guard.Sha256, StringComparison.OrdinalIgnoreCase))
+        if (!File.Exists(guardPath))
         {
             return false;
         }
