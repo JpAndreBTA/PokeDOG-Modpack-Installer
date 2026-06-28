@@ -5,7 +5,7 @@
                       "displayVersion":  "v0.1.0",
                       "version":  "0.1.0",
                       "url":  "https://drive.usercontent.google.com/download?id=1qe0LKu5Ip0y6f4f8hpsK5-RLfaxjlWkF\u0026export=download\u0026confirm=t",
-                      "sha256":  "140dc33dbf47c87971221e476303a7bded2d389c4ac9d6f94e4c8546cf630e36",
+                      "sha256":  "65c3ea4bf18fb3ce73b6d1ee68250044e0ff61f17f1921c2d369f987ac35ec80",
                       "size":  79307576
                   },
     "payload":  {
@@ -40,9 +40,16 @@
     "files":  [
                   {
                       "path":  "mods/pokedog-client-guard-0.1.0.jar",
-                      "sha256":  "cb8c56d826d1e3ec54e384773b36de3befbc78ed52840adaa227125f306700aa",
-                      "size":  38743,
+                      "sha256":  "c5505206c6cdb28632e3e55abec4f4de9099683fcf01becc9034eca29c9f5574",
+                      "size":  39811,
                       "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
+                      "policy":  "required"
+                  },
+                  {
+                      "path":  "mods/fabric-api-0.116.10+1.21.1.jar",
+                      "sha256":  "af0eb792940568fdb1f37bb65a2599773bc47d2010aedf5ec5ed0bd3b6fc40e6",
+                      "size":  2425988,
+                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/fabric-api-0.116.10+1.21.1.jar",
                       "policy":  "required"
                   }
               ]
