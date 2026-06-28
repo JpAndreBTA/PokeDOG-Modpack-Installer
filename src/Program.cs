@@ -59,6 +59,7 @@ internal sealed class WebInstallerForm : Form
     private readonly CancellationTokenSource _disposeToken = new();
     private bool _busy;
     private bool _fallbackOpened;
+    private bool _startupUpdateChecked;
 
     public WebInstallerForm()
     {
@@ -134,11 +135,20 @@ internal sealed class WebInstallerForm : Form
             switch (type)
             {
                 case "ready":
+                    if (!_startupUpdateChecked)
+                    {
+                        _startupUpdateChecked = true;
+                        await SendAsync(new { type = "toast", title = "Verificando", message = "Checando atualizacao do instalador..." });
+                        if (await TryStartupSelfUpdateAsync())
+                        {
+                            return;
+                        }
+                    }
                     await SendAsync(new
                     {
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
-                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.3",
+                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4",
                         payloadMb = 494.8
                     });
                     break;
@@ -170,6 +180,32 @@ internal sealed class WebInstallerForm : Form
         catch (Exception ex)
         {
             await SendAsync(new { type = "error", message = ex.Message });
+        }
+    }
+
+    private async Task<bool> TryStartupSelfUpdateAsync()
+    {
+        try
+        {
+            var log = new WebProgressLog(_ => { }, _ => { });
+            var updated = await InstallerEngine.TrySelfUpdateBeforeInstallAsync(
+                InstallerPaths.FindDefaultManifest(),
+                log,
+                _disposeToken.Token);
+            if (!updated)
+            {
+                return false;
+            }
+
+            await SendAsync(new { type = "toast", title = "Atualizando", message = "Nova versao encontrada. O instalador vai reiniciar." });
+            await Task.Delay(900, _disposeToken.Token);
+            Close();
+            return true;
+        }
+        catch
+        {
+            await SendAsync(new { type = "toast", title = "Aviso", message = "Nao foi possivel verificar atualizacao agora. Continuando..." });
+            return false;
         }
     }
 
@@ -1191,7 +1227,7 @@ internal static class InstallerEngine
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.3";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         log.Write("Preparando manifesto da nuvem...");
@@ -1469,6 +1505,28 @@ internal static class InstallerEngine
         return url.Length <= 120 ? url : url[..117] + "...";
     }
 
+    private static string AppendCacheBurst(string url)
+    {
+        var separator = url.Contains('?') ? "&" : "?";
+        return $"{url}{separator}ts={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+    }
+
+    private static async Task<string> DownloadManifestTextAsync(string url, HttpClient http, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, AppendCacheBurst(url));
+        request.Headers.CacheControl = new CacheControlHeaderValue
+        {
+            NoCache = true,
+            NoStore = true,
+            MustRevalidate = true
+        };
+        request.Headers.Pragma.ParseAdd("no-cache");
+        request.Headers.UserAgent.ParseAdd("PokeDOG-Modpack-Installer/0.1");
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
     private static async Task<PokeDogManifest> LoadManifestAsync(string source, HttpClient http, IInstallerLog log, CancellationToken cancellationToken)
     {
         string json;
@@ -1480,7 +1538,7 @@ internal static class InstallerEngine
             {
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
-                json = await http.GetStringAsync(uri, timeoutCts.Token);
+                json = await DownloadManifestTextAsync(source, http, timeoutCts.Token);
                 log.ReportProgress(8);
             }
             catch (Exception ex)
@@ -1554,6 +1612,14 @@ internal static class InstallerEngine
         ScheduleSelfReplace(currentExe, destination, log);
         log.Write("Instalador atualizado. Feche esta janela e abra o PokeDOG-Modpack-Installer novamente para concluir com a nova versao.");
         return true;
+    }
+
+    internal static async Task<bool> TrySelfUpdateBeforeInstallAsync(string manifestSource, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+        var manifest = await LoadManifestAsync(manifestSource, http, log, cancellationToken);
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4";
+        return await MaybeUpdateInstallerAsync(manifest, thisVersion, AppContext.BaseDirectory, http, false, log, cancellationToken);
     }
 
     private static void ScheduleSelfReplace(string currentExe, string updateExe, IInstallerLog log)
@@ -2760,7 +2826,7 @@ internal sealed record ManifestFile(
 
 internal static class InstallerPaths
 {
-    private const string RemoteManifestUrl = "https://raw.githubusercontent.com/JpAndreBTA/PokeDOG-Modpack-Installer/main/pokedog_manifest.json";
+    private const string RemoteManifestUrl = "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/latest/download/pokedog_manifest.json";
     private static readonly string[] LocalMirrorRoots =
     [
         @"H:\Meu Drive\PokeDOG",
