@@ -9,12 +9,12 @@
                       "size":  79309112
                   },
     "payload":  {
-                    "version":  "pokedog-v2-20260628",
-                    "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/cobbleverse_payload.zip",
-                    "sha256":  "f111be5766958bf7388f7d7a4c5d25e8e6512b32013d70f4abb3daffad36b131",
-                    "size":  518878996,
+                    "version":  "pokedog-v2-20260628-no-authme",
+                    "url":  "https://drive.usercontent.google.com/download?id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d\u0026export=download\u0026confirm=t",
+                    "sha256":  "af0673ad8a565c33e2980a05cfe865ea4db66d12b2f632b483fab39df755fed7",
+                    "size":  517348174,
                     "mirrors":  [
-                                    "https://drive.google.com/open?id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d"
+
                                 ],
                     "managedRoots":  [
                                          "mods",
@@ -25,7 +25,7 @@
                 },
     "updatePackages":  [
                            {
-                               "version":  "pokedog-v2-remove-authme-26.2-20260628",
+                               "version":  "pokedog-v2-remove-authme-client-20260628",
                                "url":  "",
                                "sha256":  "",
                                "size":  0,
@@ -33,15 +33,16 @@
 
                                          ],
                                "removes":  [
-                                               "mods/authme-fabric-9.3.0+26.2.jar"
+                                               "mods/authme-fabric-9.3.0+26.2.jar",
+                                               "mods/authme-fabric-9.0.1+1.21.1.jar"
                                            ]
                            }
                        ],
     "files":  [
                   {
                       "path":  "mods/pokedog-client-guard-0.1.0.jar",
-                      "sha256":  "abdc62602b7bdc79d0bf7f0c37973884a254f5dff4ee68cdfbe6329aa0eeb043",
-                      "size":  46763,
+                      "sha256":  "43f552afb3a20a1bab164ea0e7cd16c614f29d8a5c43fae55b5cf20e4ea28c98",
+                      "size":  46848,
                       "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
                       "policy":  "required"
                   },
@@ -54,4 +55,3 @@
                   }
               ]
 }
-
