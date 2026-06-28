@@ -3,12 +3,12 @@
     "guardVersion":  "0.1.0",
     "installer":  null,
     "payload":  {
-                    "version":  "pokedog-v2-20260628",
-                    "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/cobbleverse_payload.zip",
-                    "sha256":  "f111be5766958bf7388f7d7a4c5d25e8e6512b32013d70f4abb3daffad36b131",
-                    "size":  518878996,
+                    "version":  "pokedog-v2-20260628-no-authme",
+                    "url":  "https://drive.usercontent.google.com/download?id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d\u0026export=download\u0026confirm=t",
+                    "sha256":  "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
+                    "size":  517312831,
                     "mirrors":  [
-                                    "https://drive.google.com/open?id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d"
+
                                 ],
                     "managedRoots":  [
                                          "mods",
@@ -19,7 +19,7 @@
                 },
     "updatePackages":  [
                            {
-                               "version":  "pokedog-v2-remove-authme-26.2-20260628",
+                               "version":  "pokedog-v2-remove-authme-client-20260628",
                                "url":  "",
                                "sha256":  "",
                                "size":  0,
@@ -27,25 +27,18 @@
 
                                          ],
                                "removes":  [
-                                               "mods/authme-fabric-9.3.0+26.2.jar"
+                                               "mods/authme-fabric-9.3.0+26.2.jar",
+                                               "mods/authme-fabric-9.0.1+1.21.1.jar"
                                            ]
                            }
                        ],
     "files":  [
                   {
                       "path":  "mods/pokedog-client-guard-0.1.0.jar",
-                      "sha256":  "abdc62602b7bdc79d0bf7f0c37973884a254f5dff4ee68cdfbe6329aa0eeb043",
-                      "size":  46763,
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
-                      "policy":  "required"
-                  },
-                  {
-                      "path":  "mods/fabric-api-0.116.10+1.21.1.jar",
-                      "sha256":  "af0eb792940568fdb1f37bb65a2599773bc47d2010aedf5ec5ed0bd3b6fc40e6",
-                      "size":  2425988,
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/fabric-api-0.116.10+1.21.1.jar",
+                      "sha256":  "36369373cb3ccdc148f1729260160665ed1c25efc578fde776d80644a6e2b1ee",
+                      "size":  47861,
+                      "url":  "https://drive.usercontent.google.com/download?id=1lSfP9MRrxwA5w_FsJgs_mjhQgDtsersC&export=download&confirm=t",
                       "policy":  "required"
                   }
               ]
 }
-

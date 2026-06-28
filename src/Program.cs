@@ -137,7 +137,7 @@ internal sealed class WebInstallerForm : Form
                     {
                         type = "init",
                         folder = GetDefaultMinecraftFolder(),
-                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4",
+                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.1",
                         payloadMb = 494.8
                     });
                     break;
@@ -611,7 +611,7 @@ internal sealed class WebInstallerForm : Form
         node.classList.toggle('done', index > i);
         node.classList.toggle('active', index === i);
       }
-      setProgress(currentProgress);
+      document.getElementById('dl-eta').innerText = currentProgress >= 100 ? 'Finalizando...' : stage === 'clean' ? 'Limpando...' : 'Calculando...';
     }
     function updateInstallStatus(line) {
       const text = line || '';
@@ -1116,9 +1116,11 @@ internal static class InstallerEngine
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.1";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        log.Write("Preparando manifesto da nuvem...");
+        log.ReportProgress(1);
         var manifest = await LoadManifestAsync(options.Manifest, http, log, cancellationToken);
 
         log.Write($"PokeDOG Modpack Installer {thisVersion}");
@@ -1151,7 +1153,15 @@ internal static class InstallerEngine
 
         if (payloadResult != null && (manifest.Payload?.RemoveMissing ?? false))
         {
-            await RemoveMissingManagedFilesAsync(payloadResult.ManagedFiles, payloadResult.ManagedRoots, targetRoot, backupRoot, options.DryRun, log, cancellationToken);
+            await RemoveMissingManagedFilesAsync(
+                payloadResult.ManagedFiles,
+                payloadResult.ManagedRoots,
+                GetManifestManagedRetainedFiles(manifest, payloadResult.ManagedRoots),
+                targetRoot,
+                backupRoot,
+                options.DryRun,
+                log,
+                cancellationToken);
         }
         else if (payloadResult == null && (manifest.Payload?.RemoveMissing ?? false))
         {
@@ -1159,7 +1169,15 @@ internal static class InstallerEngine
             if (!string.IsNullOrWhiteSpace(cleanupPayload))
             {
                 var inventory = await ReadPayloadInventoryAsync(cleanupPayload, manifest.Payload, log, cancellationToken);
-                await RemoveMissingManagedFilesAsync(inventory.ManagedFiles, inventory.ManagedRoots, targetRoot, backupRoot, options.DryRun, log, cancellationToken);
+                await RemoveMissingManagedFilesAsync(
+                    inventory.ManagedFiles,
+                    inventory.ManagedRoots,
+                    GetManifestManagedRetainedFiles(manifest, inventory.ManagedRoots),
+                    targetRoot,
+                    backupRoot,
+                    options.DryRun,
+                    log,
+                    cancellationToken);
             }
             else
             {
@@ -1186,14 +1204,8 @@ internal static class InstallerEngine
             return null;
         }
 
-        if (await LooksLikePayloadAlreadyInstalledAsync(manifest, targetRoot, cancellationToken))
-        {
-            log.Write($"Cobbleverse base detectada no cliente: {payload?.Version}");
-            log.ReportProgress(45);
-            return null;
-        }
-
         var mirrorPayload = InstallerPaths.FindLocalPayloadMirror(payload);
+        var cachedPayload = GetCachedPayloadPath(payload, targetRoot);
         var payloadCandidates = new[] { localPayload, mirrorPayload }
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase);
@@ -1210,6 +1222,13 @@ internal static class InstallerEngine
                 var localHash = await Sha256FileAsync(payloadCandidate, cancellationToken);
                 if (localHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (await LooksLikePayloadAlreadyInstalledAsync(payloadCandidate, manifest, targetRoot, log, cancellationToken))
+                    {
+                        log.Write($"Cobbleverse base confirmada por inventario local: {payload?.Version}");
+                        log.ReportProgress(45);
+                        return null;
+                    }
+
                     log.Write($"Cobbleverse local valido: {payloadCandidate}");
                     log.ReportProgress(45);
                     return payloadCandidate;
@@ -1234,14 +1253,18 @@ internal static class InstallerEngine
             return null;
         }
 
-        var cacheDir = Path.Combine(targetRoot, ".pokedog-cache");
-        var cacheName = $"cobbleverse_payload-{SanitizeFileName(payload.Version ?? "latest")}.zip";
-        var cachedPayload = Path.Combine(cacheDir, cacheName);
         if (File.Exists(cachedPayload))
         {
             var cachedHash = await Sha256FileAsync(cachedPayload, cancellationToken);
             if (cachedHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
             {
+                if (await LooksLikePayloadAlreadyInstalledAsync(cachedPayload, manifest, targetRoot, log, cancellationToken))
+                {
+                    log.Write($"Cobbleverse base confirmada por cache local: {payload?.Version}");
+                    log.ReportProgress(45);
+                    return null;
+                }
+
                 log.Write($"Cobbleverse em cache valido: {cachedPayload}");
                 log.ReportProgress(45);
                 return cachedPayload;
@@ -1259,7 +1282,7 @@ internal static class InstallerEngine
             return null;
         }
 
-        Directory.CreateDirectory(cacheDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(cachedPayload)!);
         log.Write($"BAIXAR payload completo {payload.Version}");
         await DownloadPayloadWithMirrorsAsync(payload, cachedPayload, http, log, cancellationToken, 10, 45);
         return cachedPayload;
@@ -1388,7 +1411,10 @@ internal static class InstallerEngine
             log.ReportProgress(3);
             try
             {
-                json = await http.GetStringAsync(uri, cancellationToken);
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
+                json = await http.GetStringAsync(uri, timeoutCts.Token);
+                log.ReportProgress(8);
             }
             catch (Exception ex)
             {
@@ -1397,10 +1423,11 @@ internal static class InstallerEngine
                 {
                     throw new InvalidOperationException("Nao foi possivel baixar o manifesto online e nenhum manifesto local de fallback foi encontrado.", ex);
                 }
+
                 log.Write($"Manifesto online indisponivel. Usando fallback local: {fallback}");
                 json = await File.ReadAllTextAsync(fallback, cancellationToken);
+                log.ReportProgress(8);
             }
-            log.ReportProgress(8);
         }
         else if (!string.IsNullOrWhiteSpace(source) && File.Exists(source))
         {
@@ -1502,6 +1529,10 @@ del /f /q "%~f0" >nul 2>nul
         var done = 0;
         var plannedUpdates = 0;
         var preservedUserFiles = 0;
+        if (!dryRun)
+        {
+            await RemoveManagedRootContentsAsync(targetRoot, backupRoot, managedRoots, log, cancellationToken);
+        }
         foreach (var entry in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1557,6 +1588,36 @@ del /f /q "%~f0" >nul 2>nul
         return new PayloadApplyResult(managedFiles, managedRoots);
     }
 
+    private static async Task RemoveManagedRootContentsAsync(string targetRoot, string backupRoot, IReadOnlyList<string> managedRoots, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        foreach (var root in managedRoots)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var absoluteRoot = Path.Combine(targetRoot, root);
+            EnsureInsideRoot(absoluteRoot, targetRoot);
+            if (!Directory.Exists(absoluteRoot))
+            {
+                continue;
+            }
+
+            var files = Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories).ToList();
+            var deleted = 0;
+            foreach (var file in files)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                BackupFile(file, backupRoot, targetRoot);
+                File.Delete(file);
+                deleted++;
+            }
+
+            if (deleted > 0)
+            {
+                log.Write($"Instalacao limpa: {deleted} arquivo(s) removidos de {root} com backup.");
+            }
+        }
+    }
+
     private static bool IsUserOwnedRootFile(string relativePath)
     {
         var normalized = NormalizeKey(relativePath);
@@ -1573,10 +1634,13 @@ del /f /q "%~f0" >nul 2>nul
         return NormalizeKey(relativePath).StartsWith("config/", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<PayloadApplyResult> ReadPayloadInventoryAsync(string zipPath, PayloadPackage? payload, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<PayloadApplyResult> ReadPayloadInventoryAsync(string zipPath, PayloadPackage? payload, IInstallerLog log, CancellationToken cancellationToken, bool announce = true)
     {
         await Task.Yield();
-        log.Write($"Limpeza: usando inventario do payload {zipPath}");
+        if (announce)
+        {
+            log.Write($"Limpeza: usando inventario do payload {zipPath}");
+        }
         using var archive = ZipFile.OpenRead(zipPath);
         var managedRoots = NormalizeManagedRoots(payload?.ManagedRoots);
         var managedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1593,7 +1657,7 @@ del /f /q "%~f0" >nul 2>nul
         return new PayloadApplyResult(managedFiles, managedRoots);
     }
 
-    private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, HashSet<string> retainedFiles, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
         log.Write("Limpeza: verificando arquivos removidos do modpack.");
@@ -1618,7 +1682,18 @@ del /f /q "%~f0" >nul 2>nul
         {
             cancellationToken.ThrowIfCancellationRequested();
             var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
-            if (!payloadFiles.Contains(NormalizeKey(relativePath)))
+            var normalized = NormalizeKey(relativePath);
+            if (retainedFiles.Contains(normalized))
+            {
+                processed++;
+                if (processed % 250 == 0 || processed == candidates.Count)
+                {
+                    log.Write($"Limpeza: {processed}/{candidates.Count} arquivos verificados.");
+                }
+                continue;
+            }
+
+            if (!payloadFiles.Contains(normalized))
             {
                 plannedRemovals++;
                 if (!dryRun || plannedRemovals <= 40)
@@ -1723,8 +1798,8 @@ del /f /q "%~f0" >nul 2>nul
         return current with
         {
             PackVersion = manifest.PackVersion,
-            PayloadVersion = manifest.Payload?.Version ?? current.PayloadVersion,
-            PayloadSha256 = manifest.Payload?.Sha256 ?? current.PayloadSha256,
+            PayloadVersion = current.PayloadVersion,
+            PayloadSha256 = current.PayloadSha256,
             AppliedPackages = applied.ToArray(),
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
@@ -1883,48 +1958,23 @@ del /f /q "%~f0" >nul 2>nul
         var displayLabel = string.IsNullOrWhiteSpace(label) ? Path.GetFileName(destination) : label;
         if ((expectedSize ?? 0) >= ResumableDownloadThresholdBytes)
         {
-            await DownloadResumableAsync(url, sha256, destination, http, log, cancellationToken, expectedSize, progressStart, progressEnd, displayLabel);
-            return;
+            try
+            {
+                await DownloadResumableAsync(url, sha256, destination, http, log, cancellationToken, expectedSize, progressStart, progressEnd, displayLabel);
+                return;
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Nao foi possivel descobrir o tamanho", StringComparison.OrdinalIgnoreCase))
+            {
+                log.Write($"DOWNLOAD retomavel indisponivel para {displayLabel}; usando copia direta.");
+            }
+            catch (HttpRequestException ex) when (ex.Message.Contains("nao aceitou Range", StringComparison.OrdinalIgnoreCase))
+            {
+                log.Write($"Servidor sem suporte a Range para {displayLabel}; usando copia direta.");
+            }
         }
 
         log.Write($"DOWNLOAD iniciando {displayLabel}");
-        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var totalBytes = response.Content.Headers.ContentLength ?? expectedSize ?? 0;
-        await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-        await using (var output = File.Create(destination))
-        {
-            var buffer = new byte[1024 * 128];
-            long downloaded = 0;
-            var lastLoggedPercent = -1;
-            while (true)
-            {
-                var read = await input.ReadAsync(buffer, cancellationToken);
-                if (read == 0)
-                {
-                    break;
-                }
-
-                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-                downloaded += read;
-                if (totalBytes <= 0)
-                {
-                    continue;
-                }
-
-                var percent = (int)Math.Floor(downloaded * 100d / totalBytes);
-                if (progressEnd > progressStart)
-                {
-                    log.ReportProgress(progressStart + percent * (progressEnd - progressStart) / 100);
-                }
-
-                if (percent >= lastLoggedPercent + 10 || percent == 100)
-                {
-                    lastLoggedPercent = percent;
-                    log.Write($"DOWNLOAD {displayLabel}: {FormatBytes(downloaded)} / {FormatBytes(totalBytes)} ({percent}%)");
-                }
-            }
-        }
+        await DownloadStreamAsync(url, destination, http, log, cancellationToken, expectedSize, progressStart, progressEnd, displayLabel);
 
         var actual = await Sha256FileAsync(destination, cancellationToken);
         if (!actual.Equals(sha256, StringComparison.OrdinalIgnoreCase))
@@ -1937,6 +1987,66 @@ del /f /q "%~f0" >nul 2>nul
             log.ReportProgress(progressEnd);
         }
         log.Write($"DOWNLOAD concluido {displayLabel}");
+    }
+
+    private static async Task DownloadStreamAsync(
+        string url,
+        string destination,
+        HttpClient http,
+        IInstallerLog log,
+        CancellationToken cancellationToken,
+        long? expectedSize,
+        int progressStart,
+        int progressEnd,
+        string displayLabel)
+    {
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var totalBytes = response.Content.Headers.ContentLength ?? expectedSize ?? 0;
+        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var output = File.Create(destination);
+        var buffer = new byte[1024 * 128];
+        long downloaded = 0;
+        var lastLoggedPercent = -1;
+        while (true)
+        {
+            var read = await input.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            downloaded += read;
+            if (totalBytes > 0)
+            {
+                var percent = (int)Math.Floor(downloaded * 100d / totalBytes);
+                if (progressEnd > progressStart)
+                {
+                    log.ReportProgress(progressStart + percent * (progressEnd - progressStart) / 100);
+                }
+
+                if (percent >= lastLoggedPercent + 10 || percent == 100)
+                {
+                    lastLoggedPercent = percent;
+                    log.Write($"DOWNLOAD {displayLabel}: {FormatBytes(downloaded)} / {FormatBytes(totalBytes)} ({percent}%)");
+                }
+            }
+            else if (downloaded == read || downloaded % (1024 * 1024) < read)
+            {
+                log.Write($"DOWNLOAD {displayLabel}: {FormatBytes(downloaded)} recebidos...");
+                if (progressEnd > progressStart)
+                {
+                    var pulse = progressStart + (int)Math.Min(progressEnd - progressStart, 5 + (downloaded / (1024 * 1024)) * 2);
+                    log.ReportProgress(pulse);
+                }
+            }
+        }
+
+        if (progressEnd > progressStart)
+        {
+            log.ReportProgress(progressEnd);
+        }
     }
 
     private static async Task DownloadResumableAsync(
@@ -2164,8 +2274,8 @@ del /f /q "%~f0" >nul 2>nul
     {
         return new InstalledState(
             manifest.PackVersion,
-            manifest.Payload?.Version ?? "",
-            manifest.Payload?.Sha256 ?? "",
+            "",
+            "",
             Array.Empty<string>(),
             DateTimeOffset.UtcNow);
     }
@@ -2189,44 +2299,109 @@ del /f /q "%~f0" >nul 2>nul
             string.Equals(payload.Sha256, state.PayloadSha256, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(PokeDogManifest manifest, string targetRoot, CancellationToken cancellationToken)
+    private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(string payloadPath, PokeDogManifest manifest, string targetRoot, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
-        cancellationToken.ThrowIfCancellationRequested();
-        var guard = manifest.Files?.FirstOrDefault(file =>
-            file.Path.Contains("pokedog-client-guard", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(file.Sha256));
-        if (guard == null)
+        if (!File.Exists(payloadPath))
         {
             return false;
         }
 
-        var guardPath = Path.Combine(targetRoot, NormalizeRelativePath(guard.Path));
-        EnsureInsideRoot(guardPath, targetRoot);
-        if (!File.Exists(guardPath))
+        using var archive = ZipFile.OpenRead(payloadPath);
+        var managedRoots = NormalizeManagedRoots(manifest.Payload?.ManagedRoots);
+        var expectedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var retainedFiles = GetManifestManagedRetainedFiles(manifest, managedRoots);
+        foreach (var entry in archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)))
         {
-            return false;
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = NormalizeRelativePath(entry.FullName);
+            if (!IsUnderManagedRoots(relativePath, managedRoots))
+            {
+                continue;
+            }
+
+            var normalized = NormalizeKey(relativePath);
+            expectedFiles.Add(normalized);
+            var destination = Path.Combine(targetRoot, relativePath);
+            EnsureInsideRoot(destination, targetRoot);
+            if (!File.Exists(destination))
+            {
+                log.Write($"Cobbleverse local incompleto: faltando {relativePath}");
+                return false;
+            }
+
+            var info = new FileInfo(destination);
+            if (info.Length != entry.Length)
+            {
+                log.Write($"Cobbleverse local divergente: tamanho diferente em {relativePath}");
+                return false;
+            }
+
+            var installedHash = await Sha256FileAsync(destination, cancellationToken);
+            var expectedHash = await Sha256ZipEntryAsync(entry, cancellationToken);
+            if (!installedHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                log.Write($"Cobbleverse local divergente: hash diferente em {relativePath}");
+                return false;
+            }
         }
 
-        var modsPath = Path.Combine(targetRoot, "mods");
-        var configPath = Path.Combine(targetRoot, "config");
-        if (!Directory.Exists(modsPath) || !Directory.Exists(configPath))
+        foreach (var root in managedRoots)
         {
-            return false;
+            cancellationToken.ThrowIfCancellationRequested();
+            var absoluteRoot = Path.Combine(targetRoot, root);
+            EnsureInsideRoot(absoluteRoot, targetRoot);
+            if (!Directory.Exists(absoluteRoot))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
+                var normalized = NormalizeKey(relativePath);
+                if (retainedFiles.Contains(normalized))
+                {
+                    continue;
+                }
+
+                if (!expectedFiles.Contains(normalized))
+                {
+                    log.Write($"Cobbleverse local divergente: arquivo extra fora do payload em {relativePath}");
+                    return false;
+                }
+            }
         }
 
-        try
+        return expectedFiles.Count > 0;
+    }
+
+    private static string GetCachedPayloadPath(PayloadPackage? payload, string targetRoot)
+    {
+        var cacheDir = Path.Combine(targetRoot, ".pokedog-cache");
+        var cacheName = $"cobbleverse_payload-{SanitizeFileName(payload?.Version ?? "latest")}.zip";
+        return Path.Combine(cacheDir, cacheName);
+    }
+
+    private static HashSet<string> GetManifestManagedRetainedFiles(PokeDogManifest manifest, IReadOnlyList<string> managedRoots)
+    {
+        var retained = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in manifest.Files ?? Array.Empty<ManifestFile>())
         {
-            return Directory.EnumerateFiles(modsPath, "*.jar").Take(20).Count() >= 20;
+            if (string.Equals(file.Policy, "delete", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var relativePath = NormalizeRelativePath(file.Path);
+            if (IsUnderManagedRoots(relativePath, managedRoots))
+            {
+                retained.Add(NormalizeKey(relativePath));
+            }
         }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
+
+        return retained;
     }
 
     internal static Task<string> Sha256FileForMirrorAsync(string path, CancellationToken cancellationToken) => Sha256FileAsync(path, cancellationToken);
@@ -2449,7 +2624,8 @@ internal static class InstallerPaths
         return FirstExisting(
             Path.Combine(AppContext.BaseDirectory, "pokedog_manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "pokedog_manifest.json"),
-            Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"));
+            Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"),
+            @"H:\Meu Drive\PokeDOG\pokedog_manifest.json");
     }
 
     public static string FindDefaultPayload()

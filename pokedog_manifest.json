@@ -1,53 +1,50 @@
 {
-    "packVersion": "pokedog-v2",
-    "guardVersion": "0.1.0",
-    "installer": {
-        "displayVersion": "v0.1.0",
-        "version": "0.1.0",
-        "url": "https://drive.usercontent.google.com/download?id=1qe0LKu5Ip0y6f4f8hpsK5-RLfaxjlWkF&export=download&confirm=t",
-        "sha256": "6b99c26e465e7ad432945b202c671e9c910649bba47c06914ab5028a1fb66c0f",
-        "size": 79312696
-    },
-    "payload": {
-        "version": "pokedog-v2-20260628-no-authme",
-        "url": "https://drive.usercontent.google.com/download?id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d&export=download&confirm=t",
-        "sha256": "af0673ad8a565c33e2980a05cfe865ea4db66d12b2f632b483fab39df755fed7",
-        "size": 517348174,
-        "mirrors": [],
-        "managedRoots": [
-            "mods",
-            "resourcepacks",
-            "shaderpacks"
-        ],
-        "removeMissing": true
-    },
-    "updatePackages": [
-        {
-            "version": "pokedog-v2-remove-authme-client-20260628",
-            "url": "",
-            "sha256": "",
-            "size": 0,
-            "files": [],
-            "removes": [
-                "mods/authme-fabric-9.3.0+26.2.jar",
-                "mods/authme-fabric-9.0.1+1.21.1.jar"
-            ]
-        }
-    ],
-    "files": [
-        {
-            "path": "mods/pokedog-client-guard-0.1.0.jar",
-            "sha256": "EB176F7963B3E02953CA9763508A5B56FFD2629DF5DB32A1EA2FD2BEE1A91949",
-            "size": 47424,
-            "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
-            "policy": "required"
-        },
-        {
-            "path": "mods/fabric-api-0.116.10+1.21.1.jar",
-            "sha256": "af0eb792940568fdb1f37bb65a2599773bc47d2010aedf5ec5ed0bd3b6fc40e6",
-            "size": 2425988,
-            "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/fabric-api-0.116.10+1.21.1.jar",
-            "policy": "required"
-        }
-    ]
+    "packVersion":  "pokedog-v2",
+    "guardVersion":  "0.1.0",
+    "installer":  {
+                      "displayVersion":  "v0.1.1",
+                      "version":  "0.1.1",
+                      "url":  "https://drive.usercontent.google.com/download?id=1S7Gm6oy484UQ9VecjfF0cBvSxofxt9id\u0026export=download\u0026confirm=t",
+                      "sha256":  "d7332b57ba5e1589cf0422fb8dca8bd4feb45e8f0db7661250f69b6476307673",
+                      "size":  79314232
+                  },
+    "payload":  {
+                    "version":  "pokedog-v2-20260628-no-authme",
+                    "url":  "https://drive.usercontent.google.com/download?id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d\u0026export=download\u0026confirm=t",
+                    "sha256":  "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
+                    "size":  517312831,
+                    "mirrors":  [
+
+                                ],
+                    "managedRoots":  [
+                                         "mods",
+                                         "resourcepacks",
+                                         "shaderpacks"
+                                     ],
+                    "removeMissing":  true
+                },
+    "updatePackages":  [
+                           {
+                               "version":  "pokedog-v2-remove-authme-client-20260628",
+                               "url":  "",
+                               "sha256":  "",
+                               "size":  0,
+                               "files":  [
+
+                                         ],
+                               "removes":  [
+                                               "mods/authme-fabric-9.3.0+26.2.jar",
+                                               "mods/authme-fabric-9.0.1+1.21.1.jar"
+                                           ]
+                           }
+                       ],
+    "files":  [
+                  {
+                      "path":  "mods/pokedog-client-guard-0.1.0.jar",
+                      "sha256":  "36369373cb3ccdc148f1729260160665ed1c25efc578fde776d80644a6e2b1ee",
+                      "size":  47861,
+                      "url":  "https://drive.usercontent.google.com/download?id=1lSfP9MRrxwA5w_FsJgs_mjhQgDtsersC\u0026export=download\u0026confirm=t",
+                      "policy":  "required"
+                  }
+              ]
 }
