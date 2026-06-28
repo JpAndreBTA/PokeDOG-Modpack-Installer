@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -137,7 +138,7 @@ internal sealed class WebInstallerForm : Form
                     {
                         type = "init",
                         folder = GetDefaultMinecraftFolder(),
-                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.1",
+                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.2",
                         payloadMb = 494.8
                     });
                     break;
@@ -1116,7 +1117,7 @@ internal static class InstallerEngine
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.1";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.2";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         log.Write("Preparando manifesto da nuvem...");
@@ -1368,20 +1369,12 @@ internal static class InstallerEngine
 
     private static string NormalizeDownloadUrl(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-            !uri.Host.Contains("drive.google.com", StringComparison.OrdinalIgnoreCase))
+        if (!TryGetGoogleDriveFileId(url, out var id))
         {
             return url;
         }
 
-        var match = System.Text.RegularExpressions.Regex.Match(uri.AbsoluteUri, @"/file/d/([^/]+)");
-        var id = match.Success ? match.Groups[1].Value : GetQueryValue(uri.Query, "id");
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return url;
-        }
-
-        return $"https://drive.usercontent.google.com/download?id={Uri.EscapeDataString(id)}&export=download&confirm=t";
+        return $"https://drive.google.com/uc?export=download&id={Uri.EscapeDataString(id)}";
     }
 
     private static string GetQueryValue(string query, string key)
@@ -1956,6 +1949,7 @@ del /f /q "%~f0" >nul 2>nul
 
         url = NormalizeDownloadUrl(url);
         var displayLabel = string.IsNullOrWhiteSpace(label) ? Path.GetFileName(destination) : label;
+        url = await ResolveDownloadUrlAsync(url, http, displayLabel, cancellationToken);
         if ((expectedSize ?? 0) >= ResumableDownloadThresholdBytes)
         {
             try
@@ -2002,6 +1996,7 @@ del /f /q "%~f0" >nul 2>nul
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
+        await EnsureBinaryDownloadResponseAsync(response, displayLabel, cancellationToken);
         var totalBytes = response.Content.Headers.ContentLength ?? expectedSize ?? 0;
         await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
         await using var output = File.Create(destination);
@@ -2188,6 +2183,7 @@ del /f /q "%~f0" >nul 2>nul
         {
             throw new HttpRequestException($"Servidor nao aceitou Range {start}-{end}: {(int)response.StatusCode} {response.ReasonPhrase}");
         }
+        await EnsureBinaryDownloadResponseAsync(response, Path.GetFileName(partPath), cancellationToken);
         var contentRange = response.Content.Headers.ContentRange;
         if (contentRange?.From != start || contentRange.To != end)
         {
@@ -2222,6 +2218,91 @@ del /f /q "%~f0" >nul 2>nul
         using var response = await http.SendAsync(new HttpRequestMessage(HttpMethod.Head, url), HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         return response.Content.Headers.ContentLength ?? 0;
+    }
+
+    private static bool TryGetGoogleDriveFileId(string url, out string id)
+    {
+        id = "";
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var host = uri.Host.ToLowerInvariant();
+        if (!host.Contains("drive.google.com", StringComparison.OrdinalIgnoreCase) &&
+            !host.Contains("drive.usercontent.google.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var match = Regex.Match(uri.AbsoluteUri, @"/file/d/([^/]+)");
+        id = match.Success ? match.Groups[1].Value : GetQueryValue(uri.Query, "id");
+        return !string.IsNullOrWhiteSpace(id);
+    }
+
+    private static async Task<string> ResolveDownloadUrlAsync(string url, HttpClient http, string displayLabel, CancellationToken cancellationToken)
+    {
+        if (!TryGetGoogleDriveFileId(url, out _))
+        {
+            return url;
+        }
+
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+        if (!contentType.Contains("html", StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        var html = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (html.Contains("Virus scan warning", StringComparison.OrdinalIgnoreCase) &&
+            html.Contains("download-form", StringComparison.OrdinalIgnoreCase))
+        {
+            var actionMatch = Regex.Match(html, "<form id=\"download-form\" action=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+            if (!actionMatch.Success)
+            {
+                throw new InvalidOperationException($"Google Drive pediu confirmacao para {displayLabel}, mas o instalador nao conseguiu localizar a URL final de download.");
+            }
+
+            var inputs = Regex.Matches(html, "<input type=\"hidden\" name=\"([^\"]+)\" value=\"([^\"]*)\"", RegexOptions.IgnoreCase)
+                .Select(match => $"{Uri.EscapeDataString(match.Groups[1].Value)}={Uri.EscapeDataString(match.Groups[2].Value)}");
+            var query = string.Join("&", inputs);
+            return $"{actionMatch.Groups[1].Value}?{query}";
+        }
+
+        if (html.Contains("Quota exceeded", StringComparison.OrdinalIgnoreCase) ||
+            html.Contains("Too many users have viewed or downloaded this file recently", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Google Drive bloqueou temporariamente o download de {displayLabel} por excesso de cota/visualizacoes. O instalador tentara outro mirror.");
+        }
+
+        throw new InvalidOperationException($"Google Drive retornou uma pagina HTML inesperada em vez do arquivo de {displayLabel}.");
+    }
+
+    private static async Task EnsureBinaryDownloadResponseAsync(HttpResponseMessage response, string displayLabel, CancellationToken cancellationToken)
+    {
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+        if (!contentType.Contains("html", StringComparison.OrdinalIgnoreCase) &&
+            !contentType.Contains("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (body.Contains("Quota exceeded", StringComparison.OrdinalIgnoreCase) ||
+            body.Contains("Too many users have viewed or downloaded this file recently", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Google Drive bloqueou temporariamente o download de {displayLabel} por excesso de cota/visualizacoes. O instalador tentara outro mirror.");
+        }
+
+        if (body.Contains("Virus scan warning", StringComparison.OrdinalIgnoreCase) ||
+            body.Contains("download-form", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Google Drive ainda retornou uma pagina de confirmacao para {displayLabel} em vez do arquivo binario.");
+        }
+
+        throw new InvalidOperationException($"O servidor respondeu HTML/texto ao baixar {displayLabel}, em vez do arquivo esperado.");
     }
 
     private static void BackupFile(string file, string backupRoot, string targetRoot)

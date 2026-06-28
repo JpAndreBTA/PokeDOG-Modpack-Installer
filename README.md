@@ -2,11 +2,11 @@
 
 ## Download para jogadores
 
-Baixe somente o arquivo **[PokeDOG-Modpack-Installer.exe](https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.1/PokeDOG-Modpack-Installer.exe)** ou use `mine.ayellol.com`.
+Baixe somente o arquivo **[PokeDOG-Modpack-Installer.exe](https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.2/PokeDOG-Modpack-Installer.exe)** ou use `mine.ayellol.com`.
 
 Nao use **Code > Download ZIP**: esse botao baixa o codigo-fonte (`.cs`, `.csproj` e `.json`), que pode aparecer associado ao VS Code e nao e o instalador.
 
-Versao publica atual: `v0.1.1`. O release publica EXE, Client Guard e manifesto; o payload-base pesado segue no Google Drive e e validado por SHA-256 pelo instalador.
+Versao publica atual: `v0.1.2`. O release publica EXE, Client Guard, manifesto e payload; o Google Drive permanece sincronizado como mirror do payload.
 
 Novo updater base para substituir publicamente o `Cobbleverse-Modpack-Installer.exe`.
 
@@ -18,13 +18,13 @@ O destino automatico reconhece a raiz `.minecraft` e instancias de SKlauncher, P
 Uso de desenvolvimento:
 
 ```powershell
-dotnet run --project src -- --manifest src/pokedog_manifest.example.json --payload C:\Users\jpzin\Downloads\PokeDOG\PokeDOG_Cliente\cobbleverse_payload.zip --target C:\Temp\PokeDOGClient --dry-run
+dotnet run --project tools/pokedog-modpack-installer -- --manifest tools/pokedog-modpack-installer/pokedog_manifest.example.json --payload C:\Users\jpzin\Downloads\PokeDOG\PokeDOG_Cliente\cobbleverse_payload.zip --target C:\Temp\PokeDOGClient --dry-run
 ```
 
 Publicacao:
 
 ```powershell
-dotnet publish src\PokeDOG.ModpackInstaller.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish\win-x64
+dotnet publish tools\pokedog-modpack-installer\PokeDOG.ModpackInstaller.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o tools\pokedog-modpack-installer\publish\win-x64
 ```
 
 O manifesto controla arquivos gerenciados por SHA-256. Antes de substituir ou apagar um arquivo, o instalador salva backup em `.pokedog-backups/<timestamp>`.
