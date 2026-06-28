@@ -593,13 +593,16 @@ internal sealed class WebInstallerForm : Form
     function startInstall() {
       isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...'; send('install');
     }
+    let currentProgress = 0, currentStage = 'manifest';
     function setProgress(percent) {
       const p = Math.max(0, Math.min(100, Number(percent || 0)));
+      currentProgress = p;
       document.getElementById('dl-progress-bar').style.width = `${p}%`; document.getElementById('dl-percentage').innerText = `${Math.floor(p)}%`;
-      document.getElementById('dl-loaded-mb').innerText = `${((payloadMb * p) / 100).toFixed(1)} MB / ${payloadMb.toFixed(1)} MB`;
-      document.getElementById('dl-eta').innerText = p >= 100 ? 'Finalizando...' : 'Calculando...';
+      document.getElementById('dl-loaded-mb').innerText = `Progresso geral: ${Math.floor(p)}%`;
+      document.getElementById('dl-eta').innerText = p >= 100 ? 'Finalizando...' : currentStage === 'clean' ? 'Limpando...' : 'Calculando...';
     }
     function setStage(stage) {
+      currentStage = stage;
       const order = ['manifest','updater','payload','files','clean'];
       const index = order.indexOf(stage);
       for (let i = 0; i < order.length; i++) {
@@ -608,6 +611,7 @@ internal sealed class WebInstallerForm : Form
         node.classList.toggle('done', index > i);
         node.classList.toggle('active', index === i);
       }
+      setProgress(currentProgress);
     }
     function updateInstallStatus(line) {
       const text = line || '';
@@ -1581,6 +1585,7 @@ del /f /q "%~f0" >nul 2>nul
         log.Write("Limpeza: verificando arquivos removidos do modpack.");
         log.ReportProgress(88);
         var plannedRemovals = 0;
+        var candidates = new List<string>();
         foreach (var root in managedRoots)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1591,15 +1596,16 @@ del /f /q "%~f0" >nul 2>nul
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
-                if (payloadFiles.Contains(NormalizeKey(relativePath)))
-                {
-                    continue;
-                }
+            candidates.AddRange(Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories));
+        }
 
+        var processed = 0;
+        foreach (var file in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
+            if (!payloadFiles.Contains(NormalizeKey(relativePath)))
+            {
                 plannedRemovals++;
                 if (!dryRun || plannedRemovals <= 40)
                 {
@@ -1610,7 +1616,15 @@ del /f /q "%~f0" >nul 2>nul
                 {
                     BackupFile(file, backupRoot, targetRoot);
                     File.Delete(file);
+                    log.Write($"REMOVIDO {relativePath}");
                 }
+            }
+
+            processed++;
+            log.ReportProgress(88 + processed * 4 / Math.Max(1, candidates.Count));
+            if (processed % 250 == 0 || processed == candidates.Count)
+            {
+                log.Write($"Limpeza: {processed}/{candidates.Count} arquivos verificados.");
             }
         }
 

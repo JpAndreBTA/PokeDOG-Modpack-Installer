@@ -1,5 +1,11 @@
 # PokeDOG Modpack Installer
 
+## Download para jogadores
+
+Baixe somente o arquivo **[PokeDOG-Modpack-Installer.exe](https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/PokeDOG-Modpack-Installer.exe)** ou use `mine.ayellol.com`.
+
+Nao use **Code > Download ZIP**: esse botao baixa o codigo-fonte (`.cs`, `.csproj` e `.json`), que pode aparecer associado ao VS Code e nao e o instalador.
+
 Versao publica atual: `v0.1.0`. Esta e a unica tag/release usada pelo instalador; EXE, Client Guard e payload-base sao publicados juntos nela.
 
 Novo updater base para substituir publicamente o `Cobbleverse-Modpack-Installer.exe`.
