@@ -32,8 +32,39 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new WebInstallerForm());
+        InstallerPaths.FlushTransientCaches();
+        if (TryGuiStartupUpdate().GetAwaiter().GetResult())
+        {
+            return 0;
+        }
+        Application.Run(new InstallerForm());
         return 0;
+    }
+
+    private static async Task<bool> TryGuiStartupUpdate()
+    {
+        try
+        {
+            var log = new ConsoleProgressLog();
+            var updated = await InstallerEngine.TrySelfUpdateBeforeInstallAsync(
+                InstallerPaths.FindDefaultManifest(),
+                log,
+                CancellationToken.None);
+            if (updated)
+            {
+                MessageBox.Show(
+                    "O instalador foi atualizado. Ele sera reaberto automaticamente.",
+                    "PokeDOG Modpack Installer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return true;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private static async Task<int> RunCliAsync(string[] args)
@@ -60,6 +91,7 @@ internal sealed class WebInstallerForm : Form
     private bool _busy;
     private bool _fallbackOpened;
     private bool _startupUpdateChecked;
+    private bool _receivedWebHandshake;
 
     public WebInstallerForm()
     {
@@ -92,6 +124,7 @@ internal sealed class WebInstallerForm : Form
             _web.CoreWebView2.Settings.AreDevToolsEnabled = false;
             _web.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
             _web.NavigateToString(BuildInstallerHtml(GetBackgroundUri()));
+            _ = MonitorWebHandshakeAsync();
         }
         catch (Exception ex)
         {
@@ -99,7 +132,27 @@ internal sealed class WebInstallerForm : Form
         }
     }
 
+    private async Task MonitorWebHandshakeAsync()
+    {
+        try
+        {
+            await Task.Delay(4000, _disposeToken.Token);
+            if (!_receivedWebHandshake && !_fallbackOpened && !IsDisposed)
+            {
+                OpenCompatibilityMode(new InvalidOperationException("A interface moderna nao respondeu ao handshake inicial."));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private void OpenCompatibilityMode(Exception ex)
+    {
+        OpenCompatibilityMode(ex, null, null);
+    }
+
+    private void OpenCompatibilityMode(Exception ex, string? targetRoot, bool? autoRunDryRun)
     {
         if (_fallbackOpened)
         {
@@ -113,7 +166,7 @@ internal sealed class WebInstallerForm : Form
             "PokeDOG Modpack Installer",
             MessageBoxButtons.OK,
             MessageBoxIcon.Warning);
-        var fallback = new InstallerForm();
+        var fallback = new InstallerForm(targetRoot, autoRunDryRun);
         fallback.FormClosed += (_, _) =>
         {
             if (!IsDisposed)
@@ -129,6 +182,7 @@ internal sealed class WebInstallerForm : Form
     {
         try
         {
+            _receivedWebHandshake = true;
             using var document = JsonDocument.Parse(e.WebMessageAsJson);
             var root = document.RootElement;
             var type = root.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : "";
@@ -148,7 +202,7 @@ internal sealed class WebInstallerForm : Form
                     {
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
-                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.5",
+                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
                         payloadMb = 494.8
                     });
                     break;
@@ -170,10 +224,10 @@ internal sealed class WebInstallerForm : Form
                     });
                     break;
                 case "verify":
-                    await RunInstallerFromWebAsync(root, dryRun: true);
+                    OpenCompatibilityFromWeb(root, dryRun: true);
                     break;
                 case "install":
-                    await RunInstallerFromWebAsync(root, dryRun: false);
+                    OpenCompatibilityFromWeb(root, dryRun: false);
                     break;
                 case "openCompatibility":
                     OpenCompatibilityMode(new InvalidOperationException("Fallback solicitado pela interface."));
@@ -184,6 +238,21 @@ internal sealed class WebInstallerForm : Form
         {
             await SendAsync(new { type = "error", message = ex.Message });
         }
+    }
+
+    private void OpenCompatibilityFromWeb(JsonElement root, bool dryRun)
+    {
+        var target = root.TryGetProperty("folder", out var folderElement) ? folderElement.GetString() : GetDefaultMinecraftFolder();
+        if (!string.IsNullOrWhiteSpace(target))
+        {
+            InstallerUserSettings.SaveLastTargetRoot(target);
+        }
+        OpenCompatibilityMode(
+            new InvalidOperationException(dryRun
+                ? "Verificacao sera executada no modo de compatibilidade."
+                : "Instalacao sera executada no modo de compatibilidade."),
+            target,
+            dryRun);
     }
 
     private async Task<bool> TryStartupSelfUpdateAsync()
@@ -733,9 +802,11 @@ internal sealed class InstallerForm : Form
     private readonly Button _manifestButton = new();
     private readonly Button _payloadButton = new();
     private readonly CancellationTokenSource _disposeToken = new();
+    private readonly bool? _autoRunDryRun;
 
-    public InstallerForm()
+    public InstallerForm(string? initialTargetRoot = null, bool? autoRunDryRun = null)
     {
+        _autoRunDryRun = autoRunDryRun;
         Text = "PokeDOG Modpack Installer";
         MinimumSize = new Size(860, 620);
         Size = new Size(980, 700);
@@ -801,7 +872,9 @@ internal sealed class InstallerForm : Form
         AddRow(body, 1, "Manifesto", _manifestBox, _manifestButton, "Abrir");
         AddRow(body, 2, "Payload", _payloadBox, _payloadButton, "Abrir");
 
-        _targetBox.Text = InstallerUserSettings.GetPreferredMinecraftFolder();
+        _targetBox.Text = string.IsNullOrWhiteSpace(initialTargetRoot)
+            ? InstallerUserSettings.GetPreferredMinecraftFolder()
+            : initialTargetRoot;
         _manifestBox.Text = InstallerPaths.FindDefaultManifest();
         _payloadBox.Text = InstallerPaths.FindDefaultPayload();
 
@@ -840,6 +913,13 @@ internal sealed class InstallerForm : Form
         _targetButton.Click += (_, _) => PickFolder(_targetBox);
         _manifestButton.Click += (_, _) => PickFile(_manifestBox, "Manifestos JSON (*.json)|*.json|Todos (*.*)|*.*");
         _payloadButton.Click += (_, _) => PickFile(_payloadBox, "Payload ZIP (*.zip)|*.zip|Todos (*.*)|*.*");
+        Shown += async (_, _) =>
+        {
+            if (_autoRunDryRun.HasValue)
+            {
+                await RunInstallAsync(_autoRunDryRun.Value);
+            }
+        };
 
         AppendLog("Pronto. Se o manifesto local nao existir, o instalador usa o manifesto embutido.");
         AppendLog("O Client Guard verifica atualizacao ao entrar no servidor: versao, manifesto e hashes precisam bater com a politica server-side.");
@@ -1242,7 +1322,7 @@ internal static class InstallerEngine
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.5";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         log.Write("Preparando manifesto da nuvem...");
@@ -1633,7 +1713,7 @@ internal static class InstallerEngine
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         var manifest = await LoadManifestAsync(manifestSource, http, log, cancellationToken);
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.5";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
         return await MaybeUpdateInstallerAsync(manifest, thisVersion, AppContext.BaseDirectory, http, false, log, cancellationToken);
     }
 
@@ -2920,6 +3000,26 @@ internal static class InstallerPaths
         return null;
     }
 
+    public static void FlushTransientCaches()
+    {
+        TryDeleteDirectory(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "PokeDOG",
+            "ModpackInstaller",
+            "WebView2"));
+
+        var tempDir = Path.GetTempPath();
+        if (Directory.Exists(tempDir))
+        {
+            foreach (var script in Directory.EnumerateFiles(tempDir, "pokedog-installer-self-update-*.cmd", SearchOption.TopDirectoryOnly))
+            {
+                TryDeleteFile(script);
+            }
+        }
+
+        TryDeleteFile(Path.Combine(AppContext.BaseDirectory, "PokeDOG-Modpack-Installer.exe.update"));
+    }
+
     private static string FirstExisting(params string[] paths)
     {
         foreach (var path in paths)
@@ -2930,6 +3030,34 @@ internal static class InstallerPaths
             }
         }
         return paths[0];
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static string SanitizeForPath(string value)

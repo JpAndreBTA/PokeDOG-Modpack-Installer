@@ -2,15 +2,15 @@
   "packVersion": "pokedog-v2",
   "guardVersion": "0.1.0",
   "installer": {
-    "displayVersion": "v0.1.5",
-    "version": "0.1.5",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/PokeDOG-Modpack-Installer.exe",
-    "sha256": "b5b003015bb0b3effc08ea9763ad071369021747b48e5491997e32b80ab183ab",
-    "size": 79325496
+    "displayVersion": "v0.1.0",
+    "version": "0.1.0",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/PokeDOG-Modpack-Installer.exe",
+    "sha256": "095cfb124818ab630f0740387af7c0cd1beafcc9a953c4d2854fa0465581378b",
+    "size": 79327544
   },
   "payload": {
     "version": "pokedog-v2-20260628-no-authme",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/cobbleverse_payload.zip",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/cobbleverse_payload.zip",
     "sha256": "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
     "size": 517312831,
     "mirrors": [
@@ -41,7 +41,7 @@
       "path": "mods/pokedog-client-guard-0.1.0.jar",
       "sha256": "36369373cb3ccdc148f1729260160665ed1c25efc578fde776d80644a6e2b1ee",
       "size": 47861,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/pokedog-client-guard-0.1.0.jar",
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
     }
   ]
