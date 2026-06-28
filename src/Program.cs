@@ -15,6 +15,15 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Any(arg => arg.Equals("--list-instances", StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var instance in MinecraftInstanceLocator.FindInstances())
+            {
+                Console.WriteLine(instance);
+            }
+            return 0;
+        }
+
         if (args.Any(arg => arg.StartsWith("--", StringComparison.OrdinalIgnoreCase)))
         {
             return RunCliAsync(args).GetAwaiter().GetResult();
@@ -109,7 +118,13 @@ internal sealed class WebInstallerForm : Form
                     ChooseFolder();
                     break;
                 case "autoDetect":
-                    await SendAsync(new { type = "folder", folder = GetDefaultMinecraftFolder() });
+                    var instances = MinecraftInstanceLocator.FindInstances();
+                    await SendAsync(new
+                    {
+                        type = "folder",
+                        folder = instances.FirstOrDefault() ?? GetDefaultMinecraftFolder(),
+                        detectedCount = instances.Count
+                    });
                     break;
                 case "verify":
                     await RunInstallerFromWebAsync(root, dryRun: true);
@@ -129,7 +144,7 @@ internal sealed class WebInstallerForm : Form
     {
         using var dialog = new FolderBrowserDialog
         {
-            Description = "Selecione a pasta .minecraft",
+            Description = "Selecione a pasta da instancia do Minecraft/modpack",
             UseDescriptionForTitle = true,
             SelectedPath = Directory.Exists(GetDefaultMinecraftFolder()) ? GetDefaultMinecraftFolder() : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
         };
@@ -196,7 +211,8 @@ internal sealed class WebInstallerForm : Form
 
     private static string GetDefaultMinecraftFolder()
     {
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+        return MinecraftInstanceLocator.FindInstances().FirstOrDefault()
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
     }
 
     private static string GetBackgroundUri()
@@ -536,7 +552,7 @@ internal sealed class WebInstallerForm : Form
       if (/manifesto/i.test(text)) setStage('manifest');
       if (/Nova versao|auto-update|atualizador|instalador atualizado/i.test(text)) setStage('updater');
       if (/payload|Cobbleverse|cobbleverse/i.test(text)) setStage('payload');
-      if (/ATUALIZAR|VERIFICAR|BAIXAR mods|mods\\|mods\//i.test(text)) setStage('files');
+      if (/DELTA|ATUALIZAR|VERIFICAR|BAIXAR mods|mods\\|mods\//i.test(text)) setStage('files');
       if (/REMOVER|Limpeza/i.test(text)) setStage('clean');
       if (activeStep === 3) document.getElementById('dl-current-file').innerText = text;
     }
@@ -549,10 +565,10 @@ internal sealed class WebInstallerForm : Form
     window.pokedogFromHost = function(msg) {
       if (!msg) return;
       if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
-      if (msg.type === 'folder') { setFolderValue(msg.folder); showToast('Sucesso', 'Pasta do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
+      if (msg.type === 'folder') { setFolderValue(msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. A instancia PokeDOG mais provavel foi selecionada.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
       if (msg.type === 'installStarted') { appendLog('Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = 'Baixando manifesto e preparando dependencias...'; return; }
-      if (msg.type === 'log') { appendLog(msg.line || '', /BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
+      if (msg.type === 'log') { appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { setProgress(msg.percent); return; }
       if (msg.type === 'verified') { isVerified = true; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
       if (msg.type === 'installed') { isInstalling = false; setProgress(100); document.getElementById('dl-current-file').innerText = 'Instalacao finalizada.'; playSuccessChime(); setTimeout(()=>goToStep(4), 450); return; }
@@ -805,9 +821,7 @@ internal sealed class InstallerForm : Form
 
     private static string DefaultTargetRoot()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var minecraft = Path.Combine(appData, ".minecraft");
-        return Directory.Exists(minecraft) ? minecraft : AppContext.BaseDirectory;
+        return MinecraftInstanceLocator.FindInstances().FirstOrDefault() ?? AppContext.BaseDirectory;
     }
 
     private static Icon? LoadIconSafe()
@@ -826,6 +840,112 @@ internal sealed class InstallerForm : Form
         {
             return null;
         }
+    }
+}
+
+internal static class MinecraftInstanceLocator
+{
+    public static IReadOnlyList<string> FindInstances()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        AddCandidate(candidates, Path.Combine(appData, ".minecraft"));
+        AddChildren(candidates, Path.Combine(appData, "PrismLauncher", "instances"), "minecraft", ".minecraft");
+        AddChildren(candidates, Path.Combine(appData, "MultiMC", "instances"), ".minecraft", "minecraft");
+        AddChildren(candidates, Path.Combine(localAppData, "PrismLauncher", "instances"), "minecraft", ".minecraft");
+        AddChildren(candidates, Path.Combine(localAppData, "MultiMC", "instances"), ".minecraft", "minecraft");
+        AddChildren(candidates, Path.Combine(appData, "com.modrinth.theseus", "profiles"));
+        AddChildren(candidates, Path.Combine(appData, "ModrinthApp", "profiles"));
+        AddChildren(candidates, Path.Combine(appData, ".atlauncher", "instances"));
+        AddChildren(candidates, Path.Combine(appData, ".technic", "modpacks"));
+        AddChildren(candidates, Path.Combine(appData, "gdlauncher_carbon", "data", "instances"));
+        AddChildren(candidates, Path.Combine(appData, "gdlauncher_next", "instances"));
+        AddChildren(candidates, Path.Combine(localAppData, "CurseForge", "minecraft", "Instances"));
+        AddChildren(candidates, Path.Combine(userProfile, "curseforge", "minecraft", "Instances"));
+        AddChildren(candidates, Path.Combine(documents, "Curse", "Minecraft", "Instances"));
+
+        return candidates
+            .Where(IsMinecraftInstance)
+            .OrderByDescending(Score)
+            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static void AddChildren(HashSet<string> candidates, string instancesRoot, params string[] gameSubdirectories)
+    {
+        if (!Directory.Exists(instancesRoot))
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var instance in Directory.EnumerateDirectories(instancesRoot))
+            {
+                if (gameSubdirectories.Length == 0)
+                {
+                    AddCandidate(candidates, instance);
+                    continue;
+                }
+
+                foreach (var subdirectory in gameSubdirectories)
+                {
+                    AddCandidate(candidates, Path.Combine(instance, subdirectory));
+                }
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (IOException)
+        {
+        }
+    }
+
+    private static void AddCandidate(HashSet<string> candidates, string path)
+    {
+        if (Directory.Exists(path))
+        {
+            candidates.Add(Path.GetFullPath(path));
+        }
+    }
+
+    private static bool IsMinecraftInstance(string path)
+    {
+        return Directory.Exists(Path.Combine(path, "mods")) ||
+            Directory.Exists(Path.Combine(path, "config")) ||
+            Directory.Exists(Path.Combine(path, "versions")) ||
+            File.Exists(Path.Combine(path, "options.txt")) ||
+            File.Exists(Path.Combine(path, "instance.json")) ||
+            File.Exists(Path.Combine(path, "minecraftinstance.json")) ||
+            File.Exists(Path.Combine(Directory.GetParent(path)?.FullName ?? path, "instance.cfg"));
+    }
+
+    private static int Score(string path)
+    {
+        var score = 0;
+        if (File.Exists(Path.Combine(path, ".pokedog-cache", "installed-state.json"))) score += 10000;
+        if (Directory.Exists(Path.Combine(path, "mods")) && Directory.EnumerateFiles(Path.Combine(path, "mods"), "pokedog-client-guard-*.jar").Any()) score += 8000;
+        if (path.Contains("pokedog", StringComparison.OrdinalIgnoreCase) || path.Contains("cobbleverse", StringComparison.OrdinalIgnoreCase)) score += 4000;
+        if (Directory.Exists(Path.Combine(path, "config"))) score += 500;
+        if (Directory.Exists(Path.Combine(path, "mods")))
+        {
+            try
+            {
+                score += Math.Min(Directory.EnumerateFiles(Path.Combine(path, "mods"), "*.jar").Take(501).Count(), 500);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+        return score;
     }
 }
 
@@ -862,15 +982,17 @@ internal static class InstallerEngine
             return;
         }
 
-        var payloadPath = await ResolvePayloadAsync(options.PayloadZip, manifest.Payload, targetRoot, http, options.DryRun, log, cancellationToken);
+        var installState = await LoadInstalledStateAsync(targetRoot, cancellationToken);
+        var payloadPath = await ResolvePayloadAsync(options.PayloadZip, manifest, installState, targetRoot, http, options.DryRun, log, cancellationToken);
         PayloadApplyResult? payloadResult = null;
         if (!string.IsNullOrWhiteSpace(payloadPath))
         {
             payloadResult = await ExtractPayloadAsync(payloadPath, targetRoot, backupRoot, manifest.Payload, options.DryRun, log, cancellationToken);
+            installState = MarkPayloadInstalled(installState, manifest);
         }
         else
         {
-            log.Write("Payload nao aplicado nesta etapa. O instalador tentara usar URLs individuais do manifesto.");
+            log.Write("Cobbleverse base nao aplicado nesta etapa. O instalador usara deltas e URLs individuais quando necessario.");
         }
 
         if (payloadResult != null && (manifest.Payload?.RemoveMissing ?? false))
@@ -878,12 +1000,32 @@ internal static class InstallerEngine
             await RemoveMissingManagedFilesAsync(payloadResult.ManagedFiles, payloadResult.ManagedRoots, targetRoot, backupRoot, options.DryRun, log, cancellationToken);
         }
 
+        installState = await ApplyUpdatePackagesAsync(manifest, installState, targetRoot, backupRoot, http, options.DryRun, log, cancellationToken);
         await ApplyManagedFilesAsync(manifest, targetRoot, backupRoot, http, options.DryRun, payloadResult != null, log, cancellationToken);
+        if (!options.DryRun)
+        {
+            await SaveInstalledStateAsync(targetRoot, installState, cancellationToken);
+        }
         log.ReportProgress(100);
     }
 
-    private static async Task<string?> ResolvePayloadAsync(string localPayload, PayloadPackage? payload, string targetRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<string?> ResolvePayloadAsync(string localPayload, PokeDogManifest manifest, InstalledState? installState, string targetRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
+        var payload = manifest.Payload;
+        if (IsPayloadInstalled(manifest, installState))
+        {
+            log.Write($"Cobbleverse base ja instalada: {payload?.Version}");
+            log.ReportProgress(45);
+            return null;
+        }
+
+        if (await LooksLikePayloadAlreadyInstalledAsync(manifest, targetRoot, cancellationToken))
+        {
+            log.Write($"Cobbleverse base detectada no cliente: {payload?.Version}");
+            log.ReportProgress(45);
+            return null;
+        }
+
         if (!string.IsNullOrWhiteSpace(localPayload) && File.Exists(localPayload))
         {
             if (payload is { Sha256.Length: > 0 })
@@ -1132,6 +1274,134 @@ del /f /q "%~f0" >nul 2>nul
         log.ReportProgress(92);
     }
 
+    private static async Task<InstalledState> ApplyUpdatePackagesAsync(PokeDogManifest manifest, InstalledState? state, string targetRoot, string backupRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        var current = state ?? CreateInstalledState(manifest);
+        var packages = manifest.UpdatePackages ?? Array.Empty<UpdatePackage>();
+        if (packages.Count == 0)
+        {
+            log.Write("Deltas: nenhum pacote incremental pendente.");
+            log.ReportProgress(90);
+            return current;
+        }
+
+        var applied = new HashSet<string>(current.AppliedPackages ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        foreach (var package in packages)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var version = package.Version ?? "";
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                continue;
+            }
+
+            if (applied.Contains(version))
+            {
+                log.Write($"DELTA {version} ja aplicado.");
+                continue;
+            }
+
+            log.Write($"DELTA pendente {version}");
+            await ApplyDeltaRemovalsAsync(package, targetRoot, backupRoot, dryRun, log, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(package.Url) && !string.IsNullOrWhiteSpace(package.Sha256))
+            {
+                var cacheDir = Path.Combine(targetRoot, ".pokedog-cache", "updates");
+                var cachePath = Path.Combine(cacheDir, $"pokedog-delta-{SanitizeFileName(version)}.zip");
+                if (!dryRun)
+                {
+                    Directory.CreateDirectory(cacheDir);
+                    if (!File.Exists(cachePath) || !string.Equals(await Sha256FileAsync(cachePath, cancellationToken), package.Sha256, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await DownloadAndVerifyAsync(package.Url, package.Sha256, cachePath, http, false, log, cancellationToken, package.Size, 45, 88, $"Delta {version}");
+                    }
+                    await ExtractDeltaPackageAsync(cachePath, targetRoot, backupRoot, dryRun, log, cancellationToken);
+                }
+                else
+                {
+                    log.Write($"DRY DOWNLOAD delta {version}: {package.Url}");
+                    if (package.Files is { Count: > 0 })
+                    {
+                        foreach (var file in package.Files.Take(20))
+                        {
+                            log.Write($"DELTA atualizaria {NormalizeRelativePath(file)}");
+                        }
+                        if (package.Files.Count > 20)
+                        {
+                            log.Write($"... mais {package.Files.Count - 20} arquivo(s) no delta {version}.");
+                        }
+                    }
+                }
+            }
+
+            if (!dryRun)
+            {
+                applied.Add(version);
+            }
+        }
+
+        return current with
+        {
+            PackVersion = manifest.PackVersion,
+            PayloadVersion = manifest.Payload?.Version ?? current.PayloadVersion,
+            PayloadSha256 = manifest.Payload?.Sha256 ?? current.PayloadSha256,
+            AppliedPackages = applied.ToArray(),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+
+    private static Task ApplyDeltaRemovalsAsync(UpdatePackage package, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        foreach (var remove in package.Removes ?? Array.Empty<string>())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = NormalizeRelativePath(remove);
+            var destination = Path.Combine(targetRoot, relativePath);
+            EnsureInsideRoot(destination, targetRoot);
+            if (!File.Exists(destination))
+            {
+                log.Write($"DELTA remover ausente {relativePath}");
+                continue;
+            }
+
+            log.Write($"DELTA remover {relativePath}");
+            if (!dryRun)
+            {
+                BackupFile(destination, backupRoot, targetRoot);
+                File.Delete(destination);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    private static Task ExtractDeltaPackageAsync(string zipPath, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        log.Write($"DELTA aplicando {zipPath}");
+        using var archive = ZipFile.OpenRead(zipPath);
+        var files = archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)).ToList();
+        var done = 0;
+        foreach (var entry in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = NormalizeRelativePath(entry.FullName);
+            var destination = Path.Combine(targetRoot, relativePath);
+            EnsureInsideRoot(destination, targetRoot);
+            log.Write($"DELTA atualizar {relativePath}");
+            if (!dryRun)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                if (File.Exists(destination))
+                {
+                    BackupFile(destination, backupRoot, targetRoot);
+                }
+                entry.ExtractToFile(destination, true);
+            }
+            done++;
+            log.ReportProgress(45 + done * 43 / Math.Max(1, files.Count));
+        }
+        return Task.CompletedTask;
+    }
+
     private static async Task ApplyManagedFilesAsync(PokeDogManifest manifest, string targetRoot, string backupRoot, HttpClient http, bool dryRun, bool payloadPresent, IInstallerLog log, CancellationToken cancellationToken)
     {
         foreach (var file in manifest.Files ?? Array.Empty<ManifestFile>())
@@ -1276,6 +1546,112 @@ del /f /q "%~f0" >nul 2>nul
         var backup = Path.Combine(backupRoot, rel);
         Directory.CreateDirectory(Path.GetDirectoryName(backup)!);
         File.Copy(file, backup, true);
+    }
+
+    private static string InstalledStatePath(string targetRoot)
+    {
+        return Path.Combine(targetRoot, ".pokedog-cache", "installed-state.json");
+    }
+
+    private static async Task<InstalledState?> LoadInstalledStateAsync(string targetRoot, CancellationToken cancellationToken)
+    {
+        var path = InstalledStatePath(targetRoot);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            return JsonSerializer.Deserialize<InstalledState>(json, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task SaveInstalledStateAsync(string targetRoot, InstalledState state, CancellationToken cancellationToken)
+    {
+        var path = InstalledStatePath(targetRoot);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporaryPath = path + ".tmp";
+        var json = JsonSerializer.Serialize(state with { UpdatedAtUtc = DateTimeOffset.UtcNow }, JsonOptions);
+        await File.WriteAllTextAsync(temporaryPath, json, Encoding.UTF8, cancellationToken);
+        File.Move(temporaryPath, path, true);
+    }
+
+    private static InstalledState CreateInstalledState(PokeDogManifest manifest)
+    {
+        return new InstalledState(
+            manifest.PackVersion,
+            manifest.Payload?.Version ?? "",
+            manifest.Payload?.Sha256 ?? "",
+            Array.Empty<string>(),
+            DateTimeOffset.UtcNow);
+    }
+
+    private static InstalledState MarkPayloadInstalled(InstalledState? state, PokeDogManifest manifest)
+    {
+        var current = state ?? CreateInstalledState(manifest);
+        return current with
+        {
+            PackVersion = manifest.PackVersion,
+            PayloadVersion = manifest.Payload?.Version ?? "",
+            PayloadSha256 = manifest.Payload?.Sha256 ?? "",
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+
+    private static bool IsPayloadInstalled(PokeDogManifest manifest, InstalledState? state)
+    {
+        return manifest.Payload is { } payload && state != null &&
+            string.Equals(payload.Version, state.PayloadVersion, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(payload.Sha256, state.PayloadSha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(PokeDogManifest manifest, string targetRoot, CancellationToken cancellationToken)
+    {
+        var guard = manifest.Files?.FirstOrDefault(file =>
+            file.Path.Contains("pokedog-client-guard", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(file.Sha256));
+        if (guard == null)
+        {
+            return false;
+        }
+
+        var guardPath = Path.Combine(targetRoot, NormalizeRelativePath(guard.Path));
+        EnsureInsideRoot(guardPath, targetRoot);
+        if (!File.Exists(guardPath) ||
+            !string.Equals(await Sha256FileAsync(guardPath, cancellationToken), guard.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var modsPath = Path.Combine(targetRoot, "mods");
+        var configPath = Path.Combine(targetRoot, "config");
+        if (!Directory.Exists(modsPath) || !Directory.Exists(configPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Directory.EnumerateFiles(modsPath, "*.jar").Take(20).Count() >= 20;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static async Task<string> Sha256FileAsync(string path, CancellationToken cancellationToken)
@@ -1429,6 +1805,7 @@ internal sealed record PokeDogManifest(
     string GuardVersion,
     InstallerUpdate? Installer,
     PayloadPackage? Payload,
+    IReadOnlyList<UpdatePackage>? UpdatePackages,
     IReadOnlyList<ManifestFile> Files
 );
 
@@ -1446,6 +1823,23 @@ internal sealed record PayloadPackage(
 internal sealed record PayloadApplyResult(
     HashSet<string> ManagedFiles,
     IReadOnlyList<string> ManagedRoots
+);
+
+internal sealed record UpdatePackage(
+    string Version,
+    string Url,
+    string Sha256,
+    long Size,
+    IReadOnlyList<string>? Files,
+    IReadOnlyList<string>? Removes
+);
+
+internal sealed record InstalledState(
+    string PackVersion,
+    string PayloadVersion,
+    string PayloadSha256,
+    IReadOnlyList<string>? AppliedPackages,
+    DateTimeOffset UpdatedAtUtc
 );
 
 internal sealed record ManifestFile(
