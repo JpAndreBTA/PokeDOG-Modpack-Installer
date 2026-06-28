@@ -19,6 +19,7 @@
     <EmbeddedResource Include="pokedog_manifest.example.json" LogicalName="pokedog_manifest.default.json" />
     <EmbeddedResource Include="assets\pokedog.ico" LogicalName="pokedog.ico" />
     <EmbeddedResource Include="assets\background.png" LogicalName="pokedog_background.png" />
+    <EmbeddedResource Include="assets\PokeDOGBg.png" LogicalName="pokedog_background_main.png" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2739.15" />

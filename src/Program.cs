@@ -791,15 +791,15 @@ internal sealed class WebInstallerForm : Form
 
 internal sealed class InstallerForm : Form
 {
-    private static readonly Color Surface = Color.FromArgb(14, 18, 24);
-    private static readonly Color SurfaceAlt = Color.FromArgb(20, 28, 38);
-    private static readonly Color SurfaceCard = Color.FromArgb(9, 12, 17);
-    private static readonly Color Border = Color.FromArgb(47, 58, 75);
-    private static readonly Color Accent = Color.FromArgb(250, 204, 21);
-    private static readonly Color AccentMuted = Color.FromArgb(64, 76, 96);
-    private static readonly Color Success = Color.FromArgb(16, 185, 129);
-    private static readonly Color MutedText = Color.FromArgb(166, 184, 204);
-    private static readonly Color Danger = Color.FromArgb(220, 58, 58);
+    private static readonly Color Surface = Color.FromArgb(10, 13, 22);
+    private static readonly Color SurfaceAlt = Color.FromArgb(16, 21, 34);
+    private static readonly Color SurfaceCard = Color.FromArgb(8, 11, 20);
+    private static readonly Color Border = Color.FromArgb(41, 58, 92);
+    private static readonly Color Accent = Color.FromArgb(255, 203, 46);
+    private static readonly Color AccentMuted = Color.FromArgb(54, 68, 96);
+    private static readonly Color Success = Color.FromArgb(51, 214, 153);
+    private static readonly Color MutedText = Color.FromArgb(180, 198, 219);
+    private static readonly Color Danger = Color.FromArgb(230, 88, 88);
 
     private readonly TextBox _targetBox = new();
     private readonly TextBox _manifestBox = new();
@@ -829,19 +829,36 @@ internal sealed class InstallerForm : Form
         _autoRunDryRun = autoRunDryRun;
         Text = "PokeDOG Modpack Installer";
         MinimumSize = new Size(1020, 760);
-        Size = new Size(1120, 820);
+        Size = new Size(1280, 820);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Surface;
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10f);
         AutoScaleMode = AutoScaleMode.Dpi;
         Icon = LoadIconSafe();
+        BackgroundImage = LoadBackgroundSafe();
+        BackgroundImageLayout = ImageLayout.Stretch;
 
-        var header = new Panel { Dock = DockStyle.Top, Height = 140, BackColor = SurfaceAlt, Padding = new Padding(28, 22, 28, 18) };
+        var shell = new Panel
+        {
+            Size = new Size(1000, 700),
+            BackColor = SurfaceAlt,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+        Controls.Add(shell);
+
+        void LayoutShell()
+        {
+            shell.Left = Math.Max(20, (ClientSize.Width - shell.Width) / 2);
+            shell.Top = Math.Max(20, (ClientSize.Height - shell.Height) / 2);
+        }
+        Resize += (_, _) => LayoutShell();
+
+        var header = new Panel { Dock = DockStyle.Top, Height = 88, BackColor = SurfaceAlt, Padding = new Padding(24, 16, 24, 14) };
 
         var logo = new PictureBox
         {
-            Size = new Size(84, 84),
+            Size = new Size(52, 52),
             Location = new Point(0, 8),
             SizeMode = PictureBoxSizeMode.Zoom,
             Image = Icon?.ToBitmap()
@@ -851,9 +868,9 @@ internal sealed class InstallerForm : Form
         var title = new Label
         {
             Text = "PokeDOG Modpack Installer",
-            Location = new Point(104, 10),
-            Size = new Size(700, 40),
-            Font = new Font("Segoe UI", 24f, FontStyle.Bold),
+            Location = new Point(72, 10),
+            Size = new Size(580, 24),
+            Font = new Font("Segoe UI", 13f, FontStyle.Bold),
             ForeColor = Color.White
         };
         header.Controls.Add(title);
@@ -861,8 +878,9 @@ internal sealed class InstallerForm : Form
         var subtitle = new Label
         {
             Text = "Fluxo nativo por etapas para verificar, limpar e sincronizar mods, resourcepacks, shaderpacks e o Client Guard.",
-            Location = new Point(108, 58),
-            Size = new Size(840, 26),
+            Location = new Point(72, 36),
+            Size = new Size(760, 20),
+            Font = new Font("Segoe UI", 8.8f),
             ForeColor = MutedText
         };
         header.Controls.Add(subtitle);
@@ -871,8 +889,8 @@ internal sealed class InstallerForm : Form
         {
             Text = "NATIVO + AUTO UPDATE",
             AutoSize = false,
-            Size = new Size(210, 34),
-            Location = new Point(830, 18),
+            Size = new Size(190, 28),
+            Location = new Point(860, 16),
             TextAlign = ContentAlignment.MiddleCenter,
             BackColor = SurfaceCard,
             ForeColor = Accent,
@@ -887,16 +905,17 @@ internal sealed class InstallerForm : Form
             Padding = new Padding(28, 24, 28, 24),
             ColumnCount = 1,
             RowCount = 6,
-            BackColor = Surface
+            BackColor = Surface,
+            AutoScroll = true
         };
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 98));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 186));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 146));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 128));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 214));
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 122));
         body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        Controls.Add(header);
-        Controls.Add(body);
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
+        shell.Controls.Add(header);
+        shell.Controls.Add(body);
 
         body.Controls.Add(BuildStepCard(), 0, 0);
         body.Controls.Add(BuildStageHeroCard(), 0, 1);
@@ -919,6 +938,7 @@ internal sealed class InstallerForm : Form
         _targetBox.TextChanged += (_, _) => UpdateTargetSummary();
         Shown += async (_, _) =>
         {
+            LayoutShell();
             UpdateTargetSummary();
             SetStepState(1);
             if (_autoRunDryRun.HasValue)
@@ -1029,22 +1049,31 @@ internal sealed class InstallerForm : Form
     private Control BuildStepCard()
     {
         var card = BuildCard();
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Color.Transparent
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
         var title = new Label
         {
             Text = "Fluxo em etapas",
-            Dock = DockStyle.Top,
-            Height = 24,
+            Dock = DockStyle.Fill,
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 11f, FontStyle.Bold)
         };
-        card.Controls.Add(title);
+        layout.Controls.Add(title, 0, 0);
 
         var strip = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 7,
             RowCount = 2,
-            Padding = new Padding(10, 12, 10, 2),
+            Padding = new Padding(10, 14, 10, 2),
             BackColor = Color.Transparent
         };
         strip.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 30));
@@ -1098,7 +1127,8 @@ internal sealed class InstallerForm : Form
             }
         }
 
-        card.Controls.Add(strip);
+        layout.Controls.Add(strip, 0, 1);
+        card.Controls.Add(layout);
         return card;
     }
 
@@ -1107,25 +1137,37 @@ internal sealed class InstallerForm : Form
         var card = BuildCard();
         card.Padding = new Padding(22, 16, 22, 14);
 
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Color.Transparent
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+
         _stageTitle.Text = "Instalar Modpack PokeDOG";
-        _stageTitle.Dock = DockStyle.Top;
-        _stageTitle.Height = 36;
+        _stageTitle.Dock = DockStyle.Fill;
         _stageTitle.Font = new Font("Segoe UI", 19f, FontStyle.Bold);
         _stageTitle.ForeColor = Color.White;
+        _stageTitle.TextAlign = ContentAlignment.MiddleCenter;
 
         _stageHint.Text = "Escolha a instancia do Minecraft. O instalador vai limpar e reaplicar o conteudo gerenciado nela.";
-        _stageHint.Dock = DockStyle.Top;
-        _stageHint.Height = 42;
+        _stageHint.Dock = DockStyle.Fill;
         _stageHint.ForeColor = MutedText;
+        _stageHint.TextAlign = ContentAlignment.MiddleCenter;
 
-        _targetSummary.Dock = DockStyle.Bottom;
-        _targetSummary.Height = 24;
+        _targetSummary.Dock = DockStyle.Fill;
         _targetSummary.ForeColor = Accent;
         _targetSummary.Font = new Font("Consolas", 9f, FontStyle.Bold);
+        _targetSummary.TextAlign = ContentAlignment.MiddleCenter;
 
-        card.Controls.Add(_targetSummary);
-        card.Controls.Add(_stageHint);
-        card.Controls.Add(_stageTitle);
+        layout.Controls.Add(_stageTitle, 0, 0);
+        layout.Controls.Add(_stageHint, 0, 1);
+        layout.Controls.Add(_targetSummary, 0, 2);
+        card.Controls.Add(layout);
         return card;
     }
 
@@ -1141,10 +1183,10 @@ internal sealed class InstallerForm : Form
             RowCount = 4,
             BackColor = Color.Transparent
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
 
         var title = new Label
         {
@@ -1236,27 +1278,35 @@ internal sealed class InstallerForm : Form
         var card = BuildCard();
         card.Padding = new Padding(20, 16, 20, 16);
 
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Color.Transparent
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+
         var title = new Label
         {
             Text = "Status da sincronizacao",
-            Dock = DockStyle.Top,
-            Height = 24,
+            Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 11f, FontStyle.Bold),
             ForeColor = Color.White
         };
-        card.Controls.Add(title);
+        layout.Controls.Add(title, 0, 0);
 
         _progressCaption.Text = "Preparado para verificar manifesto, atualizador e arquivos.";
-        _progressCaption.Dock = DockStyle.Top;
-        _progressCaption.Height = 22;
+        _progressCaption.Dock = DockStyle.Fill;
         _progressCaption.ForeColor = MutedText;
-        _progressCaption.Padding = new Padding(0, 4, 0, 4);
-        card.Controls.Add(_progressCaption);
+        layout.Controls.Add(_progressCaption, 0, 1);
 
-        _progressBar.Dock = DockStyle.Bottom;
-        _progressBar.Height = 24;
+        _progressBar.Dock = DockStyle.Fill;
         _progressBar.Style = ProgressBarStyle.Continuous;
-        card.Controls.Add(_progressBar);
+        layout.Controls.Add(_progressBar, 0, 2);
+        card.Controls.Add(layout);
         return card;
     }
 
@@ -1540,6 +1590,25 @@ internal sealed class InstallerForm : Form
             }
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("pokedog.ico");
             return stream == null ? null : new Icon(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static Image? LoadBackgroundSafe()
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "assets", "PokeDOGBg.png");
+            if (File.Exists(path))
+            {
+                return Image.FromFile(path);
+            }
+
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("pokedog_background_main.png");
+            return stream == null ? null : Image.FromStream(stream);
         }
         catch
         {
@@ -1874,9 +1943,16 @@ internal static class InstallerEngine
         var payload = manifest.Payload;
         if (IsPayloadInstalled(manifest, installState))
         {
+            if (!HasManagedContentInstalled(targetRoot, payload))
+            {
+                log.Write("Estado salvo do payload encontrado, mas a instancia nao contem o Cobbleverse base. O ZIP sera baixado novamente.");
+            }
+            else
+            {
             log.Write($"Cobbleverse base ja instalada: {payload?.Version}");
             log.ReportProgress(45);
             return null;
+            }
         }
 
         var mirrorPayload = InstallerPaths.FindLocalPayloadMirror(payload);
@@ -3082,6 +3158,34 @@ del /f /q "%~f0" >nul 2>nul
         return manifest.Payload is { } payload && state != null &&
             string.Equals(payload.Version, state.PayloadVersion, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(payload.Sha256, state.PayloadSha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasManagedContentInstalled(string targetRoot, PayloadPackage? payload)
+    {
+        foreach (var root in NormalizeManagedRoots(payload?.ManagedRoots))
+        {
+            var absoluteRoot = Path.Combine(targetRoot, root);
+            if (!Directory.Exists(absoluteRoot))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories).Take(1).Any())
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return false;
     }
 
     private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(string payloadPath, PokeDogManifest manifest, string targetRoot, IInstallerLog log, CancellationToken cancellationToken)
