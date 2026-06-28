@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>PokeDOG-Modpack-Installer</AssemblyName>
+    <RootNamespace>PokeDOG.ModpackInstaller</RootNamespace>
+    <Version>0.1.0</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationIcon>assets\pokedog.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="pokedog_manifest.example.json" LogicalName="pokedog_manifest.default.json" />
+    <EmbeddedResource Include="assets\pokedog.ico" LogicalName="pokedog.ico" />
+  </ItemGroup>
+</Project>
