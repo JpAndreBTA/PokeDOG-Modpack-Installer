@@ -1,5 +1,7 @@
 # PokeDOG Modpack Installer
 
+Versao publica atual: `v0.1.0`. Esta e a unica tag/release usada pelo instalador; EXE, Client Guard e payload-base sao publicados juntos nela.
+
 Novo updater base para substituir publicamente o `Cobbleverse-Modpack-Installer.exe`.
 
 Com clique duplo, abre uma interface Windows com titulo `PokeDOG Modpack Installer`.

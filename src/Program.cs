@@ -502,6 +502,26 @@ internal sealed class WebInstallerForm : Form
       send('close');
     }
     function handleBack(){ if (activeStep > 1 && !isInstalling) goToStep(activeStep - 1); }
+    function updateNextButtonState(highlight) {
+      const next = document.getElementById('btn-next');
+      const unavailable = (activeStep === 2 && !isVerified) || isInstalling;
+      next.classList.toggle('opacity-50', unavailable);
+      next.classList.toggle('cursor-not-allowed', unavailable);
+      next.classList.toggle('opacity-100', !unavailable);
+      next.classList.toggle('cursor-pointer', !unavailable);
+      next.setAttribute('aria-disabled', unavailable ? 'true' : 'false');
+      next.style.opacity = unavailable ? '0.5' : '1';
+      next.style.backgroundColor = unavailable ? '#ca8a04' : '#facc15';
+      next.style.color = unavailable ? '#475569' : '#020617';
+      next.style.boxShadow = unavailable ? 'none' : '0 8px 18px rgba(250, 204, 21, .22)';
+      if (highlight && !unavailable) {
+        next.animate([
+          { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(250, 204, 21, 0)' },
+          { transform: 'scale(1.04)', boxShadow: '0 0 0 5px rgba(250, 204, 21, .28)' },
+          { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(250, 204, 21, 0)' }
+        ], { duration: 520, easing: 'ease-out' });
+      }
+    }
     function goToStep(step) {
       playBeep(350,80);
       for (let i=1;i<=4;i++) document.getElementById(`view-step-${i}`).classList.add('hidden-step');
@@ -509,8 +529,7 @@ internal sealed class WebInstallerForm : Form
       activeStep = step; updateStepNodes(step);
       const back = document.getElementById('btn-back'), next = document.getElementById('btn-next');
       back.disabled = step === 1 || isInstalling;
-      next.classList.toggle('opacity-50', (step === 2 && !isVerified) || isInstalling);
-      next.classList.toggle('cursor-not-allowed', (step === 2 && !isVerified) || isInstalling);
+      updateNextButtonState(false);
       next.innerHTML = step === 4 ? '<span>FECHAR</span> <i class="fa-solid fa-check text-[9px]"></i>' : '<span>AVANCAR</span> <i class="fa-solid fa-chevron-right text-[9px]"></i>';
       if (step === 3 && !isInstalling) startInstall();
     }
@@ -524,12 +543,12 @@ internal sealed class WebInstallerForm : Form
       area.appendChild(div); area.scrollTop = area.scrollHeight; logCount++; document.getElementById('log-counter').innerText = `${logCount} eventos`;
     }
     function startVerify() {
-      playBeep(400,100); isVerified = false; logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
+      playBeep(400,100); isVerified = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
       const btn = document.getElementById('btn-start-verify'); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> ESCANEANDO...'; btn.classList.add('text-slate-500');
       send('verify');
     }
     function startInstall() {
-      isInstalling = true; setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...'; send('install');
+      isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...'; send('install');
     }
     function setProgress(percent) {
       const p = Math.max(0, Math.min(100, Number(percent || 0)));
@@ -570,7 +589,7 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'installStarted') { appendLog('Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = 'Baixando manifesto e preparando dependencias...'; return; }
       if (msg.type === 'log') { appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { setProgress(msg.percent); return; }
-      if (msg.type === 'verified') { isVerified = true; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
+      if (msg.type === 'verified') { isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
       if (msg.type === 'installed') { isInstalling = false; setProgress(100); document.getElementById('dl-current-file').innerText = 'Instalacao finalizada.'; playSuccessChime(); setTimeout(()=>goToStep(4), 450); return; }
       if (msg.type === 'toast') { showToast(msg.title || 'Aviso', msg.message || '', 'fa-solid fa-bell text-pokeYellow'); return; }
       if (msg.type === 'error') { isInstalling = false; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; appendLog('ERRO: ' + (msg.message || 'falha desconhecida'), 'text-pokeRed font-bold'); showToast('Erro', msg.message || 'Falha desconhecida.', 'fa-solid fa-triangle-exclamation text-pokeRed'); }
@@ -1170,20 +1189,28 @@ internal static class InstallerEngine
 
     private static async Task<bool> MaybeUpdateInstallerAsync(PokeDogManifest manifest, string thisVersion, string targetRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
-        if (manifest.Installer is not { Url.Length: > 0, Sha256.Length: > 0 } installer ||
-            !IsNewerVersion(installer.Version, thisVersion))
+        if (manifest.Installer is not { Url.Length: > 0, Sha256.Length: > 0 } installer)
         {
             log.Write("Atualizador: instalador ja esta atualizado.");
             log.ReportProgress(10);
             return false;
         }
 
-        log.Write($"Nova versao do instalador disponivel: {installer.Version}");
         var currentExe = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
         {
             throw new InvalidOperationException("Nao foi possivel localizar o executavel atual para auto-update.");
         }
+
+        var currentHash = await Sha256FileAsync(currentExe, cancellationToken);
+        if (currentHash.Equals(installer.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            log.Write("Atualizador: instalador ja esta atualizado.");
+            log.ReportProgress(10);
+            return false;
+        }
+
+        log.Write($"Nova revisao do instalador disponivel: {installer.Version}");
         var destination = currentExe + ".update";
         await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken, null, 10, 25, "Atualizador do installer");
         if (dryRun)
