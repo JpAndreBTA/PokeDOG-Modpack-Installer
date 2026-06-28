@@ -464,7 +464,7 @@ internal sealed class WebInstallerForm : Form
     </footer>
   </main>
 
-  <div id="toast-notification" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+  <div id="toast-notification" class="fixed top-5 right-5 z-50 w-[calc(100vw-2.5rem)] sm:w-auto transform -translate-y-16 opacity-0 transition-all duration-300 pointer-events-none origin-top-right">
     <div class="bg-launcherDark border-2 border-slate-900 p-4 rounded-lg shadow-2xl flex items-center gap-3 max-w-sm">
       <div class="w-8 h-8 rounded bg-pokeRed/10 flex items-center justify-center text-pokeRed" id="toast-icon"><i class="fa-solid fa-bell"></i></div>
       <div><h4 id="toast-title" class="font-silkscreen text-[10px] font-bold text-slate-200">Aviso</h4><p id="toast-message" class="font-terminal text-sm text-slate-400 mt-0.5">Mensagem do sistema.</p></div>
@@ -491,7 +491,7 @@ internal sealed class WebInstallerForm : Form
       } catch {}
     }
     function playSuccessChime(){ setTimeout(()=>playBeep(523.25,120),0); setTimeout(()=>playBeep(659.25,120),100); setTimeout(()=>playBeep(783.99,250),200); }
-    function showToast(title, message, icon){ clearTimeout(toastTimeout); document.getElementById('toast-title').innerText = title; document.getElementById('toast-message').innerText = message; document.getElementById('toast-icon').innerHTML = `<i class="${icon || 'fa-solid fa-bell'}"></i>`; const toast = document.getElementById('toast-notification'); toast.classList.remove('translate-y-20','opacity-0'); toast.classList.add('translate-y-0','opacity-100'); toastTimeout = setTimeout(()=>{ toast.classList.add('translate-y-20','opacity-0'); toast.classList.remove('translate-y-0','opacity-100'); }, 3500); }
+    function showToast(title, message, icon){ clearTimeout(toastTimeout); document.getElementById('toast-title').innerText = title; document.getElementById('toast-message').innerText = message; document.getElementById('toast-icon').innerHTML = `<i class="${icon || 'fa-solid fa-bell'}"></i>`; const toast = document.getElementById('toast-notification'); toast.classList.remove('-translate-y-16','opacity-0'); toast.classList.add('translate-y-0','opacity-100'); toastTimeout = setTimeout(()=>{ toast.classList.add('-translate-y-16','opacity-0'); toast.classList.remove('translate-y-0','opacity-100'); }, 3500); }
 
     function handleNext() {
       if (activeStep === 1) return goToStep(2);
