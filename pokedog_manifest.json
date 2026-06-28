@@ -2,9 +2,9 @@
     "packVersion":  "pokedog-v2",
     "guardVersion":  "0.1.0",
     "installer":  {
-                      "version":  "0.1.4",
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/PokeDOG-Modpack-Installer.exe",
-                      "sha256":  "e9c395fba5bf3064b7cf18137ff5f5e62409749402756b6168d07bae9785cc51"
+                      "version":  "0.1.5",
+                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/PokeDOG-Modpack-Installer.exe",
+                      "sha256":  "89aa2e87981cd65b01de4e92e9cd8c8ef2dd4ecbea035db75a49ba8a0f3431ad"
                   },
     "payload":  {
                     "version":  "pokedog-v2-20260628",
