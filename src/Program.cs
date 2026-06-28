@@ -137,8 +137,8 @@ internal sealed class WebInstallerForm : Form
                     await SendAsync(new
                     {
                         type = "init",
-                        folder = GetDefaultMinecraftFolder(),
-                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.2",
+                        folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
+                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.3",
                         payloadMb = 494.8
                     });
                     break;
@@ -150,10 +150,12 @@ internal sealed class WebInstallerForm : Form
                     break;
                 case "autoDetect":
                     var instances = MinecraftInstanceLocator.FindInstances();
+                    var detectedFolder = instances.FirstOrDefault() ?? InstallerUserSettings.GetPreferredMinecraftFolder();
+                    InstallerUserSettings.SaveLastTargetRoot(detectedFolder);
                     await SendAsync(new
                     {
                         type = "folder",
-                        folder = instances.FirstOrDefault() ?? GetDefaultMinecraftFolder(),
+                        folder = detectedFolder,
                         detectedCount = instances.Count
                     });
                     break;
@@ -181,6 +183,7 @@ internal sealed class WebInstallerForm : Form
         };
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
+            InstallerUserSettings.SaveLastTargetRoot(dialog.SelectedPath);
             _ = SendAsync(new { type = "folder", folder = dialog.SelectedPath });
         }
     }
@@ -199,6 +202,8 @@ internal sealed class WebInstallerForm : Form
             await SendAsync(new { type = "error", message = "Selecione a pasta do Minecraft antes de continuar." });
             return;
         }
+
+        InstallerUserSettings.SaveLastTargetRoot(target);
 
         _busy = true;
         await SendAsync(new { type = dryRun ? "verifyStarted" : "installStarted" });
@@ -251,8 +256,7 @@ internal sealed class WebInstallerForm : Form
 
     private static string GetDefaultMinecraftFolder()
     {
-        return MinecraftInstanceLocator.FindInstances().FirstOrDefault()
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+        return InstallerUserSettings.GetPreferredMinecraftFolder();
     }
 
     private static string GetBackgroundUri()
@@ -746,7 +750,7 @@ internal sealed class InstallerForm : Form
         AddRow(body, 1, "Manifesto", _manifestBox, _manifestButton, "Abrir");
         AddRow(body, 2, "Payload", _payloadBox, _payloadButton, "Abrir");
 
-        _targetBox.Text = DefaultTargetRoot();
+        _targetBox.Text = InstallerUserSettings.GetPreferredMinecraftFolder();
         _manifestBox.Text = InstallerPaths.FindDefaultManifest();
         _payloadBox.Text = InstallerPaths.FindDefaultPayload();
 
@@ -812,6 +816,7 @@ internal sealed class InstallerForm : Form
                 _targetBox.Text.Trim(),
                 dryRun,
                 _payloadBox.Text.Trim());
+            InstallerUserSettings.SaveLastTargetRoot(options.TargetRoot);
             var installerUpdated = false;
             var log = new FormProgressLog(line =>
             {
@@ -902,6 +907,7 @@ internal sealed class InstallerForm : Form
         if (dialog.ShowDialog() == DialogResult.OK)
         {
             target.Text = dialog.SelectedPath;
+            InstallerUserSettings.SaveLastTargetRoot(dialog.SelectedPath);
         }
     }
 
@@ -920,7 +926,7 @@ internal sealed class InstallerForm : Form
 
     private static string DefaultTargetRoot()
     {
-        return MinecraftInstanceLocator.FindInstances().FirstOrDefault() ?? AppContext.BaseDirectory;
+        return InstallerUserSettings.GetPreferredMinecraftFolder();
     }
 
     private static Icon? LoadIconSafe()
@@ -1098,6 +1104,74 @@ internal static class MinecraftInstanceLocator
     }
 }
 
+internal static class InstallerUserSettings
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true
+    };
+
+    private static readonly string SettingsDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PokeDOG",
+        "ModpackInstaller");
+
+    private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "user-settings.json");
+
+    public static string GetPreferredMinecraftFolder()
+    {
+        var saved = LoadLastTargetRoot();
+        if (!string.IsNullOrWhiteSpace(saved) && Directory.Exists(saved))
+        {
+            return saved;
+        }
+
+        return MinecraftInstanceLocator.FindInstances().FirstOrDefault()
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+    }
+
+    public static void SaveLastTargetRoot(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(path.Trim());
+            Directory.CreateDirectory(SettingsDirectory);
+            var payload = JsonSerializer.Serialize(new InstallerUserSettingsModel(fullPath), JsonOptions);
+            File.WriteAllText(SettingsPath, payload, Encoding.UTF8);
+        }
+        catch
+        {
+        }
+    }
+
+    private static string? LoadLastTargetRoot()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath))
+            {
+                return null;
+            }
+
+            var payload = File.ReadAllText(SettingsPath, Encoding.UTF8);
+            var model = JsonSerializer.Deserialize<InstallerUserSettingsModel>(payload, JsonOptions);
+            return model?.LastTargetRoot;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
+
+internal sealed record InstallerUserSettingsModel(string LastTargetRoot);
+
 internal static class InstallerEngine
 {
     private const long ResumableDownloadThresholdBytes = 64L * 1024 * 1024;
@@ -1117,7 +1191,7 @@ internal static class InstallerEngine
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.2";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.3";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         log.Write("Preparando manifesto da nuvem...");
