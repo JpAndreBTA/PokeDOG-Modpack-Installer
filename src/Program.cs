@@ -1100,19 +1100,29 @@ internal static class InstallerEngine
             return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(localPayload) && File.Exists(localPayload))
+        var mirrorPayload = InstallerPaths.FindLocalPayloadMirror(payload);
+        var payloadCandidates = new[] { localPayload, mirrorPayload }
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var payloadCandidate in payloadCandidates)
         {
+            if (!File.Exists(payloadCandidate))
+            {
+                continue;
+            }
+
             if (payload is { Sha256.Length: > 0 })
             {
-                var localHash = await Sha256FileAsync(localPayload, cancellationToken);
+                var localHash = await Sha256FileAsync(payloadCandidate, cancellationToken);
                 if (localHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    log.Write($"Cobbleverse local valido: {localPayload}");
+                    log.Write($"Cobbleverse local valido: {payloadCandidate}");
                     log.ReportProgress(45);
-                    return localPayload;
+                    return payloadCandidate;
                 }
 
-                log.Write($"Payload local com hash diferente: {localPayload}");
+                log.Write($"Payload local com hash diferente: {payloadCandidate}");
                 if (string.IsNullOrWhiteSpace(payload.Url))
                 {
                     throw new InvalidOperationException("Payload local esta diferente do manifesto e nao ha URL remota para reparar.");
@@ -1120,9 +1130,9 @@ internal static class InstallerEngine
             }
             else
             {
-                log.Write($"Cobbleverse local: {localPayload}");
+                log.Write($"Cobbleverse local: {payloadCandidate}");
                 log.ReportProgress(45);
-                return localPayload;
+                return payloadCandidate;
             }
         }
 
@@ -1148,14 +1158,97 @@ internal static class InstallerEngine
         if (dryRun)
         {
             log.Write($"Cobbleverse remoto disponivel: {payload.Url}");
+            foreach (var mirror in payload.Mirrors ?? Array.Empty<string>())
+            {
+                log.Write($"Cobbleverse mirror disponivel: {mirror}");
+            }
             log.Write("DRY DOWNLOAD payload completo sera baixado na instalacao.");
             return null;
         }
 
         Directory.CreateDirectory(cacheDir);
         log.Write($"BAIXAR payload completo {payload.Version}");
-        await DownloadAndVerifyAsync(payload.Url, payload.Sha256, cachedPayload, http, false, log, cancellationToken, payload.Size, 10, 45, "Cobbleverse payload");
+        await DownloadPayloadWithMirrorsAsync(payload, cachedPayload, http, log, cancellationToken, 10, 45);
         return cachedPayload;
+    }
+
+    private static async Task DownloadPayloadWithMirrorsAsync(PayloadPackage payload, string cachedPayload, HttpClient http, IInstallerLog log, CancellationToken cancellationToken, int progressStart, int progressEnd)
+    {
+        Exception? lastError = null;
+        var urls = GetPayloadDownloadUrls(payload).ToArray();
+        for (var i = 0; i < urls.Length; i++)
+        {
+            var url = urls[i];
+            try
+            {
+                var sourceLabel = i == 0 ? "Cobbleverse payload" : $"Cobbleverse payload mirror {i + 1}";
+                await DownloadAndVerifyAsync(url, payload.Sha256, cachedPayload, http, false, log, cancellationToken, payload.Size, progressStart, progressEnd, sourceLabel);
+                return;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException or TaskCanceledException)
+            {
+                lastError = ex;
+                log.Write($"DOWNLOAD mirror falhou: {ShortUrl(url)}");
+                if (File.Exists(cachedPayload))
+                {
+                    File.Delete(cachedPayload);
+                }
+            }
+        }
+
+        throw new IOException("Nao foi possivel baixar o Cobbleverse por nenhum mirror configurado.", lastError);
+    }
+
+    private static IEnumerable<string> GetPayloadDownloadUrls(PayloadPackage payload)
+    {
+        foreach (var mirror in payload.Mirrors ?? Array.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(mirror))
+            {
+                yield return NormalizeDownloadUrl(mirror);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.Url))
+        {
+            yield return NormalizeDownloadUrl(payload.Url);
+        }
+    }
+
+    private static string NormalizeDownloadUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Host.Contains("drive.google.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(uri.AbsoluteUri, @"/file/d/([^/]+)");
+        var id = match.Success ? match.Groups[1].Value : GetQueryValue(uri.Query, "id");
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return url;
+        }
+
+        return $"https://drive.usercontent.google.com/download?id={Uri.EscapeDataString(id)}&export=download&confirm=t";
+    }
+
+    private static string GetQueryValue(string query, string key)
+    {
+        foreach (var part in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = part.Split('=', 2);
+            if (pieces.Length == 2 && pieces[0].Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                return Uri.UnescapeDataString(pieces[1]);
+            }
+        }
+        return "";
+    }
+
+    private static string ShortUrl(string url)
+    {
+        return url.Length <= 120 ? url : url[..117] + "...";
     }
 
     private static async Task<PokeDogManifest> LoadManifestAsync(string source, HttpClient http, IInstallerLog log, CancellationToken cancellationToken)
@@ -1521,6 +1614,18 @@ del /f /q "%~f0" >nul 2>nul
                 continue;
             }
 
+            var localMirror = await InstallerPaths.FindLocalManagedFileAsync(relativePath, file.Sha256, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(localMirror))
+            {
+                log.Write($"COPIAR mirror local {relativePath}");
+                if (!dryRun)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(localMirror, destination, true);
+                }
+                continue;
+            }
+
             if (dryRun && payloadPresent)
             {
                 log.Write($"OK {relativePath} sera fornecido pelo payload.");
@@ -1877,6 +1982,8 @@ del /f /q "%~f0" >nul 2>nul
         }
     }
 
+    internal static Task<string> Sha256FileForMirrorAsync(string path, CancellationToken cancellationToken) => Sha256FileAsync(path, cancellationToken);
+
     private static async Task<string> Sha256FileAsync(string path, CancellationToken cancellationToken)
     {
         await using var stream = File.OpenRead(path);
@@ -2039,6 +2146,7 @@ internal sealed record PayloadPackage(
     string Url,
     string Sha256,
     long Size,
+    IReadOnlyList<string>? Mirrors,
     IReadOnlyList<string>? ManagedRoots,
     bool RemoveMissing
 );
@@ -2076,10 +2184,20 @@ internal sealed record ManifestFile(
 internal static class InstallerPaths
 {
     private const string RemoteManifestUrl = "https://raw.githubusercontent.com/JpAndreBTA/PokeDOG-Modpack-Installer/main/pokedog_manifest.json";
+    private static readonly string[] LocalMirrorRoots =
+    [
+        @"H:\Meu Drive\PokeDOG",
+        Path.Combine(AppContext.BaseDirectory, "PokeDOG"),
+        Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente"),
+        AppContext.BaseDirectory
+    ];
 
     public static string FindDefaultManifest()
     {
-        return RemoteManifestUrl;
+        return FirstExistingOrRemote(
+            Path.Combine(AppContext.BaseDirectory, "pokedog_manifest.json"),
+            Path.Combine(AppContext.BaseDirectory, "PokeDOG", "pokedog_manifest.json"),
+            Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"));
     }
 
     public static string FindDefaultPayload()
@@ -2088,6 +2206,54 @@ internal static class InstallerPaths
             Path.Combine(AppContext.BaseDirectory, "cobbleverse_payload.zip"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "cobbleverse_payload.zip"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "PokeDOG_Cliente", "cobbleverse_payload.zip"));
+    }
+
+    public static string FindLocalPayloadMirror(PayloadPackage? payload)
+    {
+        var versionedName = $"cobbleverse_payload-{SanitizeForPath(payload?.Version ?? "latest")}.zip";
+        return FirstExisting(
+            LocalMirrorRoots
+                .SelectMany(root => new[]
+                {
+                    Path.Combine(root, "cobbleverse_payload.zip"),
+                    Path.Combine(root, versionedName),
+                    Path.Combine(root, "PokeDOG_Cliente", "cobbleverse_payload.zip"),
+                    Path.Combine(root, "payload", "cobbleverse_payload.zip")
+                })
+                .ToArray());
+    }
+
+    public static async Task<string?> FindLocalManagedFileAsync(string relativePath, string sha256, CancellationToken cancellationToken)
+    {
+        var safeRelative = relativePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        foreach (var root in LocalMirrorRoots)
+        {
+            foreach (var candidate in new[]
+            {
+                Path.Combine(root, safeRelative),
+                Path.Combine(root, "PokeDOG_Cliente", safeRelative),
+                Path.Combine(root, "client", safeRelative)
+            })
+            {
+                if (!File.Exists(candidate))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(sha256))
+                {
+                    return candidate;
+                }
+
+                var hash = await InstallerEngine.Sha256FileForMirrorAsync(candidate, cancellationToken);
+                if (hash.Equals(sha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string FirstExisting(params string[] paths)
@@ -2112,5 +2278,14 @@ internal static class InstallerPaths
             }
         }
         return RemoteManifestUrl;
+    }
+
+    private static string SanitizeForPath(string value)
+    {
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+        {
+            value = value.Replace(invalid, '-');
+        }
+        return value;
     }
 }
