@@ -1386,7 +1386,20 @@ internal static class InstallerEngine
         {
             log.Write($"Baixando manifesto: {source}");
             log.ReportProgress(3);
-            json = await http.GetStringAsync(uri, cancellationToken);
+            try
+            {
+                json = await http.GetStringAsync(uri, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                var fallback = InstallerPaths.FindLocalManifestFallback();
+                if (string.IsNullOrWhiteSpace(fallback) || !File.Exists(fallback))
+                {
+                    throw new InvalidOperationException("Nao foi possivel baixar o manifesto online e nenhum manifesto local de fallback foi encontrado.", ex);
+                }
+                log.Write($"Manifesto online indisponivel. Usando fallback local: {fallback}");
+                json = await File.ReadAllTextAsync(fallback, cancellationToken);
+            }
             log.ReportProgress(8);
         }
         else if (!string.IsNullOrWhiteSpace(source) && File.Exists(source))
@@ -1405,6 +1418,7 @@ internal static class InstallerEngine
             json = await reader.ReadToEndAsync(cancellationToken);
         }
 
+        json = json.TrimStart('\uFEFF');
         var manifest = JsonSerializer.Deserialize<PokeDogManifest>(json, JsonOptions);
         if (manifest == null)
         {
@@ -2427,7 +2441,12 @@ internal static class InstallerPaths
 
     public static string FindDefaultManifest()
     {
-        return FirstExistingOrRemote(
+        return RemoteManifestUrl;
+    }
+
+    public static string FindLocalManifestFallback()
+    {
+        return FirstExisting(
             Path.Combine(AppContext.BaseDirectory, "pokedog_manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "pokedog_manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"));
@@ -2499,18 +2518,6 @@ internal static class InstallerPaths
             }
         }
         return paths[0];
-    }
-
-    private static string FirstExistingOrRemote(params string[] paths)
-    {
-        foreach (var path in paths)
-        {
-            if (File.Exists(path))
-            {
-                return path;
-            }
-        }
-        return RemoteManifestUrl;
     }
 
     private static string SanitizeForPath(string value)
