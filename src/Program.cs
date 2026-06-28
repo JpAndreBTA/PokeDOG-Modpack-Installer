@@ -148,7 +148,7 @@ internal sealed class WebInstallerForm : Form
                     {
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
-                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4",
+                        version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.5",
                         payloadMb = 494.8
                     });
                     break;
@@ -174,6 +174,9 @@ internal sealed class WebInstallerForm : Form
                     break;
                 case "install":
                     await RunInstallerFromWebAsync(root, dryRun: false);
+                    break;
+                case "openCompatibility":
+                    OpenCompatibilityMode(new InvalidOperationException("Fallback solicitado pela interface."));
                     break;
             }
         }
@@ -557,7 +560,7 @@ internal sealed class WebInstallerForm : Form
 
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let activeStep = 1, isVerified = false, isInstalling = false, logCount = 0, payloadMb = 494.8, toastTimeout = null;
+    let activeStep = 1, isVerified = false, isInstalling = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
 
     function send(type, extra) {
       const input = document.getElementById('input-folder');
@@ -629,10 +632,21 @@ internal sealed class WebInstallerForm : Form
     function startVerify() {
       playBeep(400,100); isVerified = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
       const btn = document.getElementById('btn-start-verify'); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> ESCANEANDO...'; btn.classList.add('text-slate-500');
+      clearTimeout(verifyWatchdog);
+      verifyWatchdog = setTimeout(() => {
+        showToast('Compatibilidade', 'A interface moderna nao respondeu. Abrindo modo de compatibilidade...', 'fa-solid fa-screwdriver-wrench text-pokeYellow');
+        send('openCompatibility');
+      }, 8000);
       send('verify');
     }
     function startInstall() {
-      isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...'; send('install');
+      isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...';
+      clearTimeout(installWatchdog);
+      installWatchdog = setTimeout(() => {
+        showToast('Compatibilidade', 'A interface moderna travou em 0%. Abrindo modo de compatibilidade...', 'fa-solid fa-screwdriver-wrench text-pokeYellow');
+        send('openCompatibility');
+      }, 8000);
+      send('install');
     }
     let currentProgress = 0, currentStage = 'manifest';
     function setProgress(percent) {
@@ -673,12 +687,13 @@ internal sealed class WebInstallerForm : Form
       if (!msg) return;
       if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
       if (msg.type === 'folder') { setFolderValue(msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. A instancia PokeDOG mais provavel foi selecionada.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
-      if (msg.type === 'verifyStarted') { appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
-      if (msg.type === 'installStarted') { appendLog('Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = 'Baixando manifesto e preparando dependencias...'; return; }
-      if (msg.type === 'log') { appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
-      if (msg.type === 'progress') { setProgress(msg.percent); return; }
-      if (msg.type === 'verified') { isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
+      if (msg.type === 'verifyStarted') { clearTimeout(verifyWatchdog); appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
+      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); appendLog('Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = 'Baixando manifesto e preparando dependencias...'; return; }
+      if (msg.type === 'log') { clearTimeout(installWatchdog); appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
+      if (msg.type === 'progress') { clearTimeout(installWatchdog); setProgress(msg.percent); return; }
+      if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
       if (msg.type === 'installed') {
+        clearTimeout(installWatchdog);
         isInstalling = false;
         setProgress(100);
         const installerUpdated = !!msg.installerUpdated;
@@ -695,7 +710,7 @@ internal sealed class WebInstallerForm : Form
         return;
       }
       if (msg.type === 'toast') { showToast(msg.title || 'Aviso', msg.message || '', 'fa-solid fa-bell text-pokeYellow'); return; }
-      if (msg.type === 'error') { isInstalling = false; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; appendLog('ERRO: ' + (msg.message || 'falha desconhecida'), 'text-pokeRed font-bold'); showToast('Erro', msg.message || 'Falha desconhecida.', 'fa-solid fa-triangle-exclamation text-pokeRed'); }
+      if (msg.type === 'error') { clearTimeout(installWatchdog); clearTimeout(verifyWatchdog); isInstalling = false; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; appendLog('ERRO: ' + (msg.message || 'falha desconhecida'), 'text-pokeRed font-bold'); showToast('Erro', msg.message || 'Falha desconhecida.', 'fa-solid fa-triangle-exclamation text-pokeRed'); }
     };
     window.addEventListener('DOMContentLoaded', () => send('ready'));
   </script>
@@ -1227,7 +1242,7 @@ internal static class InstallerEngine
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.5";
         var targetRoot = Path.GetFullPath(options.TargetRoot);
         var backupRoot = Path.Combine(targetRoot, ".pokedog-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         log.Write("Preparando manifesto da nuvem...");
@@ -1618,7 +1633,7 @@ internal static class InstallerEngine
     {
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         var manifest = await LoadManifestAsync(manifestSource, http, log, cancellationToken);
-        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.4";
+        var thisVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.5";
         return await MaybeUpdateInstallerAsync(manifest, thisVersion, AppContext.BaseDirectory, http, false, log, cancellationToken);
     }
 

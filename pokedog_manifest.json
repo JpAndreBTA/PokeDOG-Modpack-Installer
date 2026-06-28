@@ -1,50 +1,48 @@
 {
-    "packVersion":  "pokedog-v2",
-    "guardVersion":  "0.1.0",
-    "installer":  {
-                      "displayVersion":  "v0.1.4",
-                      "version":  "0.1.4",
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/PokeDOG-Modpack-Installer.exe",
-                      "sha256":  "fa3246e2f9242b4241fc223ba84fd6e7757117b2a7a59990e284c31d1c035218",
-                      "size":  79320888
-                  },
-    "payload":  {
-                    "version":  "pokedog-v2-20260628-no-authme",
-                    "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/cobbleverse_payload.zip",
-                    "sha256":  "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
-                    "size":  517312831,
-                    "mirrors":  [
-                                    "https://drive.google.com/uc?export=download\u0026id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d"
-                                ],
-                    "managedRoots":  [
-                                         "mods",
-                                         "resourcepacks",
-                                         "shaderpacks"
-                                     ],
-                    "removeMissing":  true
-                },
-    "updatePackages":  [
-                           {
-                               "version":  "pokedog-v2-remove-authme-client-20260628",
-                               "url":  "",
-                               "sha256":  "",
-                               "size":  0,
-                               "files":  [
-
-                                         ],
-                               "removes":  [
-                                               "mods/authme-fabric-9.3.0+26.2.jar",
-                                               "mods/authme-fabric-9.0.1+1.21.1.jar"
-                                           ]
-                           }
-                       ],
-    "files":  [
-                  {
-                      "path":  "mods/pokedog-client-guard-0.1.0.jar",
-                      "sha256":  "36369373cb3ccdc148f1729260160665ed1c25efc578fde776d80644a6e2b1ee",
-                      "size":  47861,
-                      "url":  "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/pokedog-client-guard-0.1.0.jar",
-                      "policy":  "required"
-                  }
-              ]
+  "packVersion": "pokedog-v2",
+  "guardVersion": "0.1.0",
+  "installer": {
+    "displayVersion": "v0.1.5",
+    "version": "0.1.5",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/PokeDOG-Modpack-Installer.exe",
+    "sha256": "b5b003015bb0b3effc08ea9763ad071369021747b48e5491997e32b80ab183ab",
+    "size": 79325496
+  },
+  "payload": {
+    "version": "pokedog-v2-20260628-no-authme",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/cobbleverse_payload.zip",
+    "sha256": "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
+    "size": 517312831,
+    "mirrors": [
+      "https://drive.google.com/uc?export=download&id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d"
+    ],
+    "managedRoots": [
+      "mods",
+      "resourcepacks",
+      "shaderpacks"
+    ],
+    "removeMissing": true
+  },
+  "updatePackages": [
+    {
+      "version": "pokedog-v2-remove-authme-client-20260628",
+      "url": "",
+      "sha256": "",
+      "size": 0,
+      "files": [],
+      "removes": [
+        "mods/authme-fabric-9.3.0+26.2.jar",
+        "mods/authme-fabric-9.0.1+1.21.1.jar"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "mods/pokedog-client-guard-0.1.0.jar",
+      "sha256": "36369373cb3ccdc148f1729260160665ed1c25efc578fde776d80644a6e2b1ee",
+      "size": 47861,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/pokedog-client-guard-0.1.0.jar",
+      "policy": "required"
+    }
+  ]
 }
