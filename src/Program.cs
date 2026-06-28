@@ -13,11 +13,11 @@ using Microsoft.Web.WebView2.WinForms;
 internal static class Program
 {
     [STAThread]
-    private static async Task<int> Main(string[] args)
+    private static int Main(string[] args)
     {
         if (args.Any(arg => arg.StartsWith("--", StringComparison.OrdinalIgnoreCase)))
         {
-            return await RunCliAsync(args);
+            return RunCliAsync(args).GetAwaiter().GetResult();
         }
 
         ApplicationConfiguration.Initialize();
@@ -51,8 +51,8 @@ internal sealed class WebInstallerForm : Form
     public WebInstallerForm()
     {
         Text = "PokeDOG Modpack Installer";
-        MinimumSize = new Size(720, 620);
-        Size = new Size(760, 680);
+        MinimumSize = new Size(720, 660);
+        Size = new Size(760, 720);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(7, 9, 15);
         Icon = LoadIconSafe();
@@ -80,9 +80,6 @@ internal sealed class WebInstallerForm : Form
                 "PokeDOG Modpack Installer",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
-            Hide();
-            using var fallback = new InstallerForm();
-            fallback.ShowDialog(this);
             Close();
         }
     }
@@ -267,8 +264,53 @@ internal sealed class WebInstallerForm : Form
     .pixel-shadow { box-shadow: 4px 4px 0 0 #000; }
     .step { transition: opacity .22s ease, transform .22s ease; }
     .hidden-step { display: none; }
-    .folder-input { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .folder-input { min-width: 0; overflow: hidden; text-overflow: clip; white-space: nowrap; }
     .terminal-line { overflow-wrap: anywhere; }
+    .absolute { position: absolute; } .relative { position: relative; } .fixed { position: fixed; }
+    .inset-0 { inset: 0; } .top-4 { top: 1rem; } .right-4 { right: 1rem; } .bottom-6 { bottom: 1.5rem; } .right-6 { right: 1.5rem; }
+    .z-0 { z-index: 0; } .z-10 { z-index: 10; } .z-20 { z-index: 20; } .z-50 { z-index: 50; }
+    .flex { display: flex; } .grid { display: grid; } .hidden { display: none; }
+    .flex-col { flex-direction: column; } .flex-grow { flex: 1 1 0%; } .flex-none { flex: none; }
+    .items-center { align-items: center; } .justify-center { justify-content: center; } .justify-between { justify-content: space-between; }
+    .text-center { text-align: center; } .text-left { text-align: left; } .text-right { text-align: right; }
+    .mx-auto { margin-left: auto; margin-right: auto; } .mt-0\.5 { margin-top: .125rem; } .mt-1 { margin-top: .25rem; } .mt-2 { margin-top: .5rem; } .mb-3 { margin-bottom: .75rem; } .mb-4 { margin-bottom: 1rem; }
+    .p-3 { padding: .75rem; } .p-4 { padding: 1rem; } .p-5 { padding: 1.25rem; } .px-1 { padding-left: .25rem; padding-right: .25rem; } .px-2 { padding-left: .5rem; padding-right: .5rem; } .px-3 { padding-left: .75rem; padding-right: .75rem; } .px-4 { padding-left: 1rem; padding-right: 1rem; } .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; } .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; } .py-0\.5 { padding-top: .125rem; padding-bottom: .125rem; } .py-2 { padding-top: .5rem; padding-bottom: .5rem; } .py-4 { padding-top: 1rem; padding-bottom: 1rem; } .pt-1 { padding-top: .25rem; } .pt-2 { padding-top: .5rem; } .pt-8 { padding-top: 2rem; } .pl-3 { padding-left: .75rem; } .pl-8 { padding-left: 2rem; } .pr-1 { padding-right: .25rem; } .pr-3 { padding-right: .75rem; }
+    .gap-1 { gap: .25rem; } .gap-1\.5 { gap: .375rem; } .gap-2 { gap: .5rem; } .gap-2\.5 { gap: .625rem; } .gap-3 { gap: .75rem; } .gap-4 { gap: 1rem; }
+    .space-y-1 > * + * { margin-top: .25rem; } .space-y-1\.5 > * + * { margin-top: .375rem; } .space-y-2 > * + * { margin-top: .5rem; } .space-y-3 > * + * { margin-top: .75rem; } .space-y-4 > * + * { margin-top: 1rem; } .space-y-5 > * + * { margin-top: 1.25rem; }
+    .w-full { width: 100%; } .w-1\.5 { width: .375rem; } .h-1\.5 { height: .375rem; } .w-3\.5 { width: .875rem; } .h-3\.5 { height: .875rem; } .w-7 { width: 1.75rem; } .h-7 { height: 1.75rem; } .w-8 { width: 2rem; } .h-8 { height: 2rem; } .w-10 { width: 2.5rem; } .h-10 { height: 2.5rem; } .w-12 { width: 3rem; } .h-12 { height: 3rem; } .w-16 { width: 4rem; } .h-16 { height: 4rem; } .w-48 { width: 12rem; } .h-3 { height: .75rem; } .h-44 { height: 11rem; }
+    .max-w-xs { max-width: 20rem; } .max-w-sm { max-width: 24rem; } .max-w-md { max-width: 28rem; } .max-w-lg { max-width: 32rem; } .max-w-2xl { max-width: 42rem; } .min-w-0 { min-width: 0; }
+    .overflow-hidden { overflow: hidden; } .overflow-y-auto { overflow-y: auto; } .select-none { user-select: none; } .pointer-events-none { pointer-events: none; }
+    .rounded { border-radius: .25rem; } .rounded-lg { border-radius: .5rem; } .rounded-full { border-radius: 9999px; } .rounded-sm { border-radius: .125rem; }
+    .border { border-width: 1px; border-style: solid; } .border-2 { border-width: 2px; border-style: solid; } .border-t { border-top-width: 1px; border-top-style: solid; } .border-t-2 { border-top-width: 2px; border-top-style: solid; }
+    .border-slate-950 { border-color: #020617; } .border-slate-900 { border-color: #0f172a; } .border-slate-800 { border-color: #1e293b; }
+    .bg-cover { background-size: cover; } .bg-center { background-position: center; } .bg-launcherDark\/95 { background: rgba(14,18,29,.95); } .bg-slate-950 { background: #020617; } .bg-slate-950\/60 { background: rgba(2,6,23,.6); } .bg-slate-950\/80 { background: rgba(2,6,23,.8); } .bg-slate-900 { background: #0f172a; } .bg-slate-800 { background: #1e293b; } .bg-pokeYellow { background: #FACC15; } .bg-pokeRed\/10 { background: rgba(225,48,48,.1); } .bg-emerald-500\/20 { background: rgba(16,185,129,.2); } .bg-emerald-500 { background: #10b981; }
+    .text-white { color: #fff; } .text-slate-950 { color: #020617; } .text-slate-600 { color: #475569; } .text-slate-500 { color: #64748b; } .text-slate-400 { color: #94a3b8; } .text-slate-300 { color: #cbd5e1; } .text-slate-200 { color: #e2e8f0; } .text-pokeYellow { color: #FACC15; } .text-pokeRed { color: #E13030; } .text-emerald-400 { color: #34d399; } .text-emerald-500 { color: #10b981; }
+    .text-\[9px\] { font-size: 9px; } .text-\[10px\] { font-size: 10px; } .text-\[13px\] { font-size: 13px; } .text-xs { font-size: 12px; } .text-sm { font-size: 14px; } .text-lg { font-size: 18px; } .text-xl { font-size: 20px; }
+    .font-pixel { font-family: 'Press Start 2P', Consolas, monospace; } .font-silkscreen { font-family: 'Silkscreen', Consolas, monospace; } .font-terminal { font-family: 'VT323', Consolas, monospace; } .font-bold { font-weight: 700; } .font-black { font-weight: 900; } .font-semibold { font-weight: 600; } .font-medium { font-weight: 500; } .italic { font-style: italic; }
+    .tracking-wide { letter-spacing: 0; } .tracking-wider { letter-spacing: .05em; } .tracking-widest { letter-spacing: .1em; } .uppercase { text-transform: uppercase; } .leading-relaxed { line-height: 1.625; } .leading-normal { line-height: 1.5; }
+    .transition-all, .transition-colors { transition: all .2s ease; } .duration-300 { transition-duration: .3s; } .opacity-0 { opacity: 0; } .opacity-50 { opacity: .5; } .opacity-75 { opacity: .75; } .opacity-100 { opacity: 1; }
+    .cursor-pointer { cursor: pointer; } .cursor-not-allowed { cursor: not-allowed; }
+    .bg-gradient-to-r { background: linear-gradient(90deg, #E13030, #FACC15); } .bg-gradient-to-br { background: linear-gradient(135deg, #10b981, #059669); }
+    .drop-shadow-\[0_2px_0px_\#000\] { text-shadow: 0 2px 0 #000; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; position: relative; color: #f1f5f9; font-family: 'Plus Jakarta Sans', Segoe UI, sans-serif; overflow: hidden; }
+    main { width: 100%; max-width: 672px; min-height: 540px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 10; overflow: hidden; background: rgba(14,18,29,.95); border-radius: 8px; }
+    header { padding: 24px 24px 0; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 0 0 auto; }
+    section { padding: 12px 40px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+    footer { padding: 16px 20px; background: rgba(2,6,23,.6); border-top: 2px solid #0f172a; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: 0 0 auto; }
+    input { min-width: 0; }
+    button { border: 2px solid #020617; font-family: 'Silkscreen', Consolas, monospace; }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .3; pointer-events: none; }
+    #terminal-logs { background: #020617; color: #94a3b8; }
+    #view-step-2 #terminal-logs { height: min(10rem, 24vh); }
+    #view-step-1 .bg-slate-950\/80 { max-width: 510px; }
+    #view-step-1 button { white-space: nowrap; }
+    #input-folder { min-width: 220px; }
+    #toast-notification { transform: translateY(80px); }
+    #toast-notification.translate-y-0 { transform: translateY(0); }
+    #toast-notification.translate-y-20 { transform: translateY(80px); }
+    @media (max-height: 680px) { header { padding-top: 18px; } section { padding-top: 8px; padding-bottom: 8px; } footer { padding-top: 12px; padding-bottom: 12px; } .w-16.h-16 { width: 3.25rem; height: 3.25rem; } #view-step-2 #terminal-logs { height: 8.5rem; } }
+    @media (max-width: 640px) { section { padding-left: 24px; padding-right: 24px; } footer { flex-direction: column; } }
   </style>
 </head>
 <body class="text-gray-100 font-sans min-h-screen flex items-center justify-center p-4 relative">
@@ -471,10 +513,16 @@ internal sealed class WebInstallerForm : Form
       document.getElementById('dl-loaded-mb').innerText = `${((payloadMb * p) / 100).toFixed(1)} MB / ${payloadMb.toFixed(1)} MB`;
       document.getElementById('dl-eta').innerText = p >= 100 ? 'Finalizando...' : 'Calculando...';
     }
+    function setFolderValue(folder) {
+      const input = document.getElementById('input-folder');
+      input.value = folder || '';
+      input.title = folder || '';
+      requestAnimationFrame(() => { input.scrollLeft = input.scrollWidth; });
+    }
     window.pokedogFromHost = function(msg) {
       if (!msg) return;
-      if (msg.type === 'init') { document.getElementById('input-folder').value = msg.folder || ''; document.getElementById('input-folder').title = msg.folder || ''; payloadMb = msg.payloadMb || payloadMb; return; }
-      if (msg.type === 'folder') { document.getElementById('input-folder').value = msg.folder || ''; document.getElementById('input-folder').title = msg.folder || ''; showToast('Sucesso', 'Pasta do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
+      if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
+      if (msg.type === 'folder') { setFolderValue(msg.folder); showToast('Sucesso', 'Pasta do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
       if (msg.type === 'installStarted') { appendLog('Instalacao real iniciada.', 'text-slate-300'); document.getElementById('dl-current-file').innerText = 'Aplicando payload, mods, configs e Client Guard...'; return; }
       if (msg.type === 'log') { appendLog(msg.line || '', /BAIXAR|ATUALIZAR|REMOVER|Nova versao/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); if (activeStep === 3) document.getElementById('dl-current-file').innerText = msg.line || ''; return; }
