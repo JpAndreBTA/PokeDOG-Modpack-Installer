@@ -853,7 +853,12 @@ internal static class MinecraftInstanceLocator
         var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        AddCandidate(candidates, Path.Combine(appData, ".minecraft"));
+        var defaultMinecraft = Path.Combine(appData, ".minecraft");
+        AddCandidate(candidates, defaultMinecraft);
+        AddChildren(candidates, Path.Combine(defaultMinecraft, "instances"));
+        AddLauncherProfileGameDirectories(candidates, Path.Combine(defaultMinecraft, "launcher_profiles.json"));
+        AddChildren(candidates, Path.Combine(appData, "sklauncher", "instances"));
+        AddChildren(candidates, Path.Combine(localAppData, "sklauncher", "instances"));
         AddChildren(candidates, Path.Combine(appData, "PrismLauncher", "instances"), "minecraft", ".minecraft");
         AddChildren(candidates, Path.Combine(appData, "MultiMC", "instances"), ".minecraft", "minecraft");
         AddChildren(candidates, Path.Combine(localAppData, "PrismLauncher", "instances"), "minecraft", ".minecraft");
@@ -911,6 +916,51 @@ internal static class MinecraftInstanceLocator
         if (Directory.Exists(path))
         {
             candidates.Add(Path.GetFullPath(path));
+        }
+    }
+
+    private static void AddLauncherProfileGameDirectories(HashSet<string> candidates, string profilesPath)
+    {
+        if (!File.Exists(profilesPath))
+        {
+            return;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(profilesPath));
+            if (!document.RootElement.TryGetProperty("profiles", out var profiles) || profiles.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            foreach (var profile in profiles.EnumerateObject())
+            {
+                if (!profile.Value.TryGetProperty("gameDir", out var gameDirectory) || gameDirectory.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                var path = Environment.ExpandEnvironmentVariables(gameDirectory.GetString() ?? "");
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    continue;
+                }
+                if (!Path.IsPathRooted(path))
+                {
+                    path = Path.Combine(Path.GetDirectoryName(profilesPath)!, path);
+                }
+                AddCandidate(candidates, path);
+            }
+        }
+        catch (JsonException)
+        {
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
         }
     }
 

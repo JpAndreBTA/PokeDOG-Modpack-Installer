@@ -5,7 +5,7 @@ Novo updater base para substituir publicamente o `Cobbleverse-Modpack-Installer.
 Com clique duplo, abre uma interface Windows com titulo `PokeDOG Modpack Installer`.
 O usuario precisa somente do EXE: manifesto, payload inicial e atualizacoes sao obtidos do GitHub com validacao SHA-256.
 
-O destino automatico reconhece a raiz `.minecraft` e instancias de Prism Launcher, MultiMC, CurseForge, Modrinth, ATLauncher, Technic e GDLauncher. Instancias PokeDOG/Cobbleverse e instalacoes que ja possuem o Client Guard recebem prioridade.
+O destino automatico reconhece a raiz `.minecraft` e instancias de SKlauncher, Prism Launcher, MultiMC, CurseForge, Modrinth, ATLauncher, Technic e GDLauncher. Para o SKlauncher, tambem sao lidos os `gameDir` registrados em `.minecraft/launcher_profiles.json`. Instancias PokeDOG/Cobbleverse e instalacoes que ja possuem o Client Guard recebem prioridade.
 
 Uso de desenvolvimento:
 
