@@ -331,7 +331,7 @@ internal sealed class WebInstallerForm : Form
                 }
                 _ = SendAsync(new { type = "log", line });
             }, percent => _ = SendAsync(new { type = "progress", percent }));
-            await InstallerEngine.RunAsync(options, log, _disposeToken.Token);
+            await Task.Run(async () => await InstallerEngine.RunAsync(options, log, _disposeToken.Token), _disposeToken.Token);
             await SendAsync(new { type = dryRun ? "verified" : "installed", installerUpdated, forceRepair });
         }
         catch (OperationCanceledException)
@@ -1015,7 +1015,7 @@ internal sealed class InstallerForm : Form
             {
                 UpdateProgress(value);
             });
-            await InstallerEngine.RunAsync(options, log, _disposeToken.Token);
+            await Task.Run(async () => await InstallerEngine.RunAsync(options, log, _disposeToken.Token), _disposeToken.Token);
             AppendLog(dryRun ? "Verificacao concluida." : forceRepair ? "Reparo limpo concluido." : "Instalacao/atualizacao concluida.");
             SetStepState(4);
             SetStageText(
