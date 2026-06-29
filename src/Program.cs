@@ -1996,17 +1996,24 @@ internal static class InstallerEngine
     {
         var payload = manifest.Payload;
         var missingManagedRoots = GetMissingManagedRoots(targetRoot, payload);
+        var missingManagedFiles = GetMissingManagedFilesFromState(installState, targetRoot, payload);
         var incompleteManagedRoots = missingManagedRoots.Count > 0;
+        var incompleteManagedFiles = missingManagedFiles.Count > 0;
+        var incompleteManagedContent = incompleteManagedRoots || incompleteManagedFiles;
         if (incompleteManagedRoots)
         {
             log.Write($"Instancia incompleta: pastas gerenciadas ausentes em {string.Join(", ", missingManagedRoots)}. O Cobbleverse sera reaplicado para corrigir a instalacao.");
+        }
+        if (incompleteManagedFiles)
+        {
+            log.Write($"Instancia incompleta: arquivo(s) gerenciados ausentes ({string.Join(", ", missingManagedFiles)}). O Cobbleverse sera reaplicado com o ZIP local/remoto para corrigir mods e dependencias.");
         }
 
         if (forceRepair)
         {
             log.Write("Reparo limpo solicitado. O Cobbleverse payload sera reaplicado mesmo que a instancia ja esteja atualizada.");
         }
-        else if (!incompleteManagedRoots && IsPayloadInstalled(manifest, installState))
+        else if (!incompleteManagedContent && IsPayloadInstalled(manifest, installState))
         {
             if (HasPayloadInventory(installState))
             {
@@ -2050,11 +2057,11 @@ internal static class InstallerEngine
                 var localHash = await Sha256FileWithProgressAsync(payloadCandidate, log, cancellationToken, 8, 18, "Cobbleverse local");
                 if (localHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (forceRepair || incompleteManagedRoots)
+                    if (forceRepair || incompleteManagedContent)
                     {
                         log.Write(forceRepair
                             ? $"Cobbleverse local validado para reparo limpo: {payloadCandidate}"
-                            : $"Cobbleverse local validado para corrigir pastas ausentes: {payloadCandidate}");
+                            : $"Cobbleverse local validado para corrigir itens ausentes da instalacao: {payloadCandidate}");
                         log.ReportProgress(45);
                         return payloadCandidate;
                     }
@@ -2097,11 +2104,11 @@ internal static class InstallerEngine
             var cachedHash = await Sha256FileWithProgressAsync(cachedPayload, log, cancellationToken, 8, 18, "Cobbleverse em cache");
             if (cachedHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                if (forceRepair || incompleteManagedRoots)
+                if (forceRepair || incompleteManagedContent)
                 {
                     log.Write(forceRepair
                         ? $"Cobbleverse em cache validado para reparo limpo: {cachedPayload}"
-                        : $"Cobbleverse em cache validado para corrigir pastas ausentes: {cachedPayload}");
+                        : $"Cobbleverse em cache validado para corrigir itens ausentes da instalacao: {cachedPayload}");
                     log.ReportProgress(45);
                     return cachedPayload;
                 }
@@ -3315,6 +3322,38 @@ del /f /q "%~f0" >nul 2>nul
             if (!Directory.Exists(absoluteRoot))
             {
                 missing.Add(root);
+            }
+        }
+
+        return missing;
+    }
+
+    private static IReadOnlyList<string> GetMissingManagedFilesFromState(InstalledState? state, string targetRoot, PayloadPackage? payload)
+    {
+        if (!HasPayloadInventory(state))
+        {
+            return Array.Empty<string>();
+        }
+
+        var managedRoots = NormalizeManagedRoots(payload?.ManagedRoots);
+        var missing = new List<string>();
+        foreach (var file in state!.PayloadFiles ?? Array.Empty<PayloadFileState>())
+        {
+            var relativePath = NormalizeRelativePath(file.Path);
+            if (!IsUnderManagedRoots(relativePath, managedRoots))
+            {
+                continue;
+            }
+
+            var destination = Path.Combine(targetRoot, relativePath);
+            EnsureInsideRoot(destination, targetRoot);
+            if (!File.Exists(destination))
+            {
+                missing.Add(relativePath);
+                if (missing.Count >= 5)
+                {
+                    break;
+                }
             }
         }
 
