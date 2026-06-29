@@ -609,6 +609,17 @@ internal sealed class WebInstallerForm : Form
             <div id="stage-files" class="stage-pill">Arquivos</div>
             <div id="stage-clean" class="stage-pill">Limpeza</div>
           </div>
+          <div class="space-y-1 pt-2 border-t border-slate-900/60">
+            <div class="flex justify-between items-center px-1">
+              <span class="font-silkscreen text-[10px] text-slate-500 uppercase tracking-wider">Console da Instalacao</span>
+              <span id="install-log-counter" class="font-terminal text-xs text-slate-500">0 eventos</span>
+            </div>
+            <div class="relative bg-[#07090f] border-2 border-slate-900 rounded p-3 overflow-hidden">
+              <div id="install-logs" class="h-32 overflow-y-auto font-terminal text-[12px] text-slate-400 space-y-1 pr-1 leading-normal">
+                <div class="text-slate-600 terminal-line">[CONSOLE] Aguardando logs da sincronizacao real...</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -723,6 +734,15 @@ internal sealed class WebInstallerForm : Form
       const area = document.getElementById('terminal-logs'); const ts = new Date().toLocaleTimeString('pt-BR');
       const div = document.createElement('div'); div.className = `terminal-line ${tone || 'text-slate-400'}`; div.textContent = `[${ts}] ${line}`;
       area.appendChild(div); area.scrollTop = area.scrollHeight; logCount++; document.getElementById('log-counter').innerText = `${logCount} eventos`;
+      const installArea = document.getElementById('install-logs');
+      if (installArea) {
+        const installDiv = document.createElement('div');
+        installDiv.className = `terminal-line ${tone || 'text-slate-400'}`;
+        installDiv.textContent = `[${ts}] ${line}`;
+        installArea.appendChild(installDiv);
+        installArea.scrollTop = installArea.scrollHeight;
+        document.getElementById('install-log-counter').innerText = `${logCount} eventos`;
+      }
     }
     function startVerify() {
       playBeep(400,100); isVerified = false; verificationUpToDate = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
@@ -742,7 +762,9 @@ internal sealed class WebInstallerForm : Form
     }
     function startInstall(forceRepair) {
       repairMode = !!forceRepair;
-      isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = repairMode ? 'Preparando reparo limpo do modpack...' : 'Preparando sincronizacao real do modpack...';
+      isInstalling = true; updateNextButtonState(false); setProgress(1); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = repairMode ? 'Preparando reparo limpo do modpack...' : 'Preparando sincronizacao real do modpack...';
+      const installArea = document.getElementById('install-logs'); if (installArea) installArea.innerHTML = '<div class=\"text-slate-600 terminal-line\">[CONSOLE] Preparando console da instalacao...</div>';
+      document.getElementById('install-log-counter').innerText = `${logCount} eventos`;
       clearTimeout(installWatchdog);
       installWatchdog = setTimeout(() => {
         showToast('Compatibilidade', 'A interface moderna travou em 0%. Abrindo modo de compatibilidade...', 'fa-solid fa-screwdriver-wrench text-pokeYellow');
@@ -790,7 +812,7 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
       if (msg.type === 'folder') { setFolderValue(msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. A instancia PokeDOG mais provavel foi selecionada.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { clearTimeout(verifyWatchdog); appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
-      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; return; }
+      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; setProgress(Math.max(currentProgress, 2)); appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; return; }
       if (msg.type === 'log') { clearTimeout(installWatchdog); appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { clearTimeout(installWatchdog); setProgress(msg.percent); return; }
       if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; verificationUpToDate = !!msg.upToDate; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = false; repairBtn.classList.remove('opacity-50','cursor-not-allowed'); repairBtn.classList.add('text-white','border-pokeRed'); appendLog(verificationUpToDate ? 'Verificacao concluida. Instalacao ja esta em dia; o instalador pode reparar se voce quiser.' : 'Verificacao concluida. Clique em Avancar ou use Reparo Limpo.', 'text-emerald-400 font-bold'); showToast('Verificado!', verificationUpToDate ? 'Instalacao atualizada e funcional. O instalador vai perguntar antes de reparar.' : 'Pronto para sincronizar ou reparar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
@@ -2119,6 +2141,16 @@ internal static class InstallerEngine
                 continue;
             }
 
+            if (LooksLikeOfficialPayloadByNameAndSize(payloadCandidate, payload))
+            {
+                log.Write($"Payload local reconhecido por nome+tamanho: {payloadCandidate}");
+                if (forceRepair || incompleteManagedContent || dryRun)
+                {
+                    log.ReportProgress(18);
+                    return payloadCandidate;
+                }
+            }
+
             if (payload is { Sha256.Length: > 0 })
             {
                 log.Write($"Validando hash do payload local: {payloadCandidate}");
@@ -2168,6 +2200,16 @@ internal static class InstallerEngine
 
         if (File.Exists(cachedPayload))
         {
+            if (LooksLikeOfficialPayloadByNameAndSize(cachedPayload, payload))
+            {
+                log.Write($"Payload em cache reconhecido por nome+tamanho: {cachedPayload}");
+                if (forceRepair || incompleteManagedContent || dryRun)
+                {
+                    log.ReportProgress(18);
+                    return cachedPayload;
+                }
+            }
+
             log.Write($"Validando hash do payload em cache: {cachedPayload}");
             var cachedHash = await Sha256FileWithProgressAsync(cachedPayload, log, cancellationToken, 8, 18, "Cobbleverse em cache");
             if (cachedHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
@@ -3426,6 +3468,38 @@ del /f /q "%~f0" >nul 2>nul
         }
 
         return missing;
+    }
+
+    private static bool LooksLikeOfficialPayloadByNameAndSize(string path, PayloadPackage? payload)
+    {
+        if (payload == null || string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return false;
+        }
+
+        var fileName = Path.GetFileName(path);
+        if (!string.Equals(fileName, "cobbleverse_payload.zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (payload.Size <= 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            return new FileInfo(path).Length == payload.Size;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(string payloadPath, PokeDogManifest manifest, string targetRoot, IInstallerLog log, CancellationToken cancellationToken, int progressStart = 5, int progressEnd = 45)
