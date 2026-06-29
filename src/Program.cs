@@ -198,6 +198,7 @@ internal sealed class WebInstallerForm : Form
             switch (type)
             {
                 case "ready":
+                    var initialInstances = MinecraftInstanceLocator.FindInstanceEntries();
                     if (!_startupUpdateChecked)
                     {
                         _startupUpdateChecked = true;
@@ -212,7 +213,8 @@ internal sealed class WebInstallerForm : Form
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
                         version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
-                        payloadMb = 494.8
+                        payloadMb = 494.8,
+                        instances = initialInstances
                     });
                     break;
                 case "close":
@@ -222,15 +224,30 @@ internal sealed class WebInstallerForm : Form
                     ChooseFolder();
                     break;
                 case "autoDetect":
-                    var instances = MinecraftInstanceLocator.FindInstances();
-                    var detectedFolder = instances.FirstOrDefault() ?? InstallerUserSettings.GetPreferredMinecraftFolder();
+                    var instanceEntries = MinecraftInstanceLocator.FindInstanceEntries();
+                    var detectedFolder = instanceEntries.FirstOrDefault()?.Path ?? InstallerUserSettings.GetPreferredMinecraftFolder();
                     InstallerUserSettings.SaveLastTargetRoot(detectedFolder);
                     await SendAsync(new
                     {
                         type = "folder",
                         folder = detectedFolder,
-                        detectedCount = instances.Count
+                        detectedCount = instanceEntries.Count,
+                        instances = instanceEntries
                     });
+                    break;
+                case "selectDetectedInstance":
+                    var selectedPath = root.TryGetProperty("selectedPath", out var selectedPathElement) ? selectedPathElement.GetString() : "";
+                    if (!string.IsNullOrWhiteSpace(selectedPath))
+                    {
+                        InstallerUserSettings.SaveLastTargetRoot(selectedPath);
+                        await SendAsync(new
+                        {
+                            type = "folder",
+                            folder = selectedPath,
+                            detectedCount = MinecraftInstanceLocator.FindInstanceEntries().Count,
+                            instances = MinecraftInstanceLocator.FindInstanceEntries()
+                        });
+                    }
                     break;
                 case "verify":
                     await RunInstallerFromWebAsync(root, dryRun: true);
@@ -304,7 +321,13 @@ internal sealed class WebInstallerForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             InstallerUserSettings.SaveLastTargetRoot(dialog.SelectedPath);
-            _ = SendAsync(new { type = "folder", folder = dialog.SelectedPath });
+            _ = SendAsync(new
+            {
+                type = "folder",
+                folder = dialog.SelectedPath,
+                detectedCount = MinecraftInstanceLocator.FindInstanceEntries().Count,
+                instances = MinecraftInstanceLocator.FindInstanceEntries()
+            });
         }
     }
 
@@ -529,11 +552,11 @@ internal sealed class WebInstallerForm : Form
     .drop-shadow-\[0_2px_0px_\#000\] { text-shadow: 0 2px 0 #000; }
     html, body { margin: 0 !important; width: 100vw !important; height: 100vh !important; min-height: 100vh !important; padding: 0 !important; overflow: hidden !important; background: #0e121d; }
     body { display: flex; align-items: stretch; justify-content: stretch; position: relative; color: #f1f5f9; font-family: 'Plus Jakarta Sans', Segoe UI, sans-serif; }
-    main { width: 100vw; max-width: none; min-height: 100vh; max-height: none; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 10; overflow: hidden; background: rgba(14,18,29,.96); border-radius: 0; }
-    #app-main { width: 100vw !important; max-width: none !important; min-height: 100vh !important; max-height: none !important; border-radius: 0 !important; margin: 0 !important; }
+    main { width: 100vw; max-width: none; min-height: 100vh; height: 100vh; max-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 10; overflow: hidden; background: rgba(14,18,29,.96); border-radius: 0; }
+    #app-main { width: 100vw !important; max-width: none !important; min-height: 100vh !important; height: 100vh !important; max-height: 100vh !important; border-radius: 0 !important; margin: 0 !important; }
     header { padding: 26px 24px 0; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 0 0 auto; }
-    section { padding: 12px 52px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
-    footer { padding: 16px 20px; background: rgba(2,6,23,.6); border-top: 2px solid #0f172a; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: 0 0 auto; }
+    section { padding: 10px 52px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; overflow-x: hidden; }
+    footer { padding: 16px 20px; background: rgba(2,6,23,.92); border-top: 2px solid #0f172a; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: 0 0 auto; position: sticky; bottom: 0; z-index: 20; }
     input { min-width: 0; }
     button { border: 2px solid #020617; font-family: 'Silkscreen', Consolas, monospace; }
     button:hover { filter: brightness(1.08); }
@@ -543,6 +566,34 @@ internal sealed class WebInstallerForm : Form
     #view-step-1 .bg-slate-950\/80 { max-width: 580px; }
     #view-step-1 button { white-space: nowrap; }
     #input-folder { min-width: 285px; }
+    #view-step-1 .space-y-5 > * + * { margin-top: .75rem; }
+    .detected-shell { border-top: 1px solid rgba(15,23,42,.85); padding-top: 8px; }
+    .detected-shell.hidden { display: none; }
+    .detected-card { background: #07090f; border: 2px solid #0f172a; border-radius: 6px; overflow: hidden; }
+    .detected-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: transparent; color: #cbd5e1; padding: 8px 10px; font-family: 'Silkscreen', Consolas, monospace; font-size: 9px; text-transform: uppercase; border: 0; border-bottom: 1px solid rgba(15,23,42,.75); }
+    .detected-toggle:last-of-type { border-bottom: 0; }
+    .detected-toggle i { transition: transform .2s ease; }
+    .detected-toggle.open i { transform: rotate(180deg); }
+    .detected-panel { display: none; padding: 6px 8px; background: rgba(2,6,23,.35); border-bottom: 1px solid rgba(15,23,42,.75); }
+    .detected-panel.open { display: block; }
+    .detected-panel:last-child { border-bottom: 0; }
+    .detected-scrollbox { width: 100%; max-height: 92px; overflow-x: hidden; overflow-y: auto; padding-right: 2px; }
+    .detected-scrollbox::-webkit-scrollbar { width: 8px; height: 8px; }
+    .detected-scrollbox::-webkit-scrollbar-track { background: #05070a; }
+    .detected-scrollbox::-webkit-scrollbar-thumb { background: #FACC15; border: 2px solid #05070a; }
+    .detected-list { display: flex; flex-direction: column; flex-wrap: nowrap; gap: 4px; min-width: 0; align-items: stretch; }
+    .detected-item { width: 100%; min-width: 0; max-width: none; text-align: left; border: 2px solid #0f172a; background: linear-gradient(180deg, rgba(9,12,20,.98), rgba(2,6,23,.98)); border-radius: 6px; padding: 5px 7px; color: #cbd5e1; white-space: nowrap; overflow: hidden; }
+    .detected-item.active { border-color: #FACC15; box-shadow: 0 0 0 1px rgba(250,204,21,.22) inset; }
+    .detected-item-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .detected-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: 'Silkscreen', Consolas, monospace; font-size: 8px; color: #f8fafc; }
+    .detected-item-desc { flex-shrink: 0; font-family: 'VT323', Consolas, monospace; font-size: 11px; color: #94a3b8; opacity: .92; }
+    .detected-empty { font-family: 'VT323', Consolas, monospace; font-size: 15px; color: #64748b; }
+    .launcher-group { width: 100%; min-width: 0; max-width: none; border: 1px solid rgba(15,23,42,.75); border-radius: 6px; overflow: hidden; background: rgba(2,6,23,.28); }
+    .launcher-group-header { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: transparent; color: #cbd5e1; border: 0; padding: 7px 9px; font-family: 'Silkscreen', Consolas, monospace; font-size: 8px; }
+    .launcher-group-header i { transition: transform .2s ease; }
+    .launcher-group-header.open i { transform: rotate(180deg); }
+    .launcher-group-body { display: none; padding: 5px; border-top: 1px solid rgba(15,23,42,.75); }
+    .launcher-group-body.open { display: block; }
     .download-stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding-top: 8px; border-top: 1px solid rgba(15,23,42,.8); }
     .stage-pill { min-width: 0; padding: 7px 6px; border: 2px solid #0f172a; border-radius: 4px; background: #07090f; color: #64748b; font-family: 'Silkscreen', Consolas, monospace; font-size: 9px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .stage-pill.active { color: #FACC15; border-color: #FACC15; box-shadow: 0 0 0 1px rgba(250,204,21,.2) inset; }
@@ -608,6 +659,32 @@ internal sealed class WebInstallerForm : Form
             <button onclick="send('autoDetect')" class="bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white px-4 py-2 rounded font-silkscreen text-[10px] transition-all flex items-center justify-center gap-1 border-2 border-slate-950 active:scale-95">
               <i class="fa-solid fa-wand-magic-sparkles text-pokeYellow"></i> AUTO DETETAR
             </button>
+          </div>
+          <div id="detected-shell" class="detected-shell hidden">
+            <div class="flex justify-between items-center gap-3">
+              <span class="font-silkscreen text-[10px] text-slate-400 uppercase tracking-wide">Instancias e launchers detectados</span>
+              <span id="detected-summary" class="font-terminal text-xs text-slate-500">0 instancias</span>
+            </div>
+            <div class="detected-card">
+              <button id="toggle-detected-instances" type="button" class="detected-toggle" onclick="toggleDetectedSection('instances')">
+                <span>Instancias achadas</span>
+                <i class="fa-solid fa-chevron-down text-pokeYellow"></i>
+              </button>
+              <div id="detected-panel-instances" class="detected-panel">
+                <div class="detected-scrollbox">
+                  <div id="detected-instances-list" class="detected-list"></div>
+                </div>
+              </div>
+              <button id="toggle-detected-launchers" type="button" class="detected-toggle" onclick="toggleDetectedSection('launchers')">
+                <span>Launchers e instalacoes detectados</span>
+                <i class="fa-solid fa-chevron-down text-pokeYellow"></i>
+              </button>
+              <div id="detected-panel-launchers" class="detected-panel">
+                <div class="detected-scrollbox">
+                  <div id="detected-launchers-list" class="detected-list"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -703,6 +780,8 @@ internal sealed class WebInstallerForm : Form
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
+    let detectedInstances = [];
+    let customPathPinned = false;
 
     function send(type, extra) {
       const input = document.getElementById('input-folder');
@@ -855,10 +934,136 @@ internal sealed class WebInstallerForm : Form
       input.title = folder || '';
       requestAnimationFrame(() => { input.scrollLeft = input.scrollWidth; });
     }
+    function instanceField(instance, name) {
+      if (!instance) return '';
+      const lower = name.charAt(0).toLowerCase() + name.slice(1);
+      return instance[lower] ?? instance[name] ?? '';
+    }
+    function getDetectedSummaryText(selectedPath) {
+      if (customPathPinned && selectedPath) return 'caminho custom ativo';
+      if (!selectedPath) return `${detectedInstances.length} instancias encontradas`;
+      const match = detectedInstances.find(x => String(instanceField(x, 'Path') || '').toLowerCase() === selectedPath.toLowerCase());
+      return match ? `${detectedInstances.length} instancias encontradas` : 'caminho custom ativo';
+    }
+    function setDetectedInstances(instances, preferredFolder) {
+      detectedInstances = Array.isArray(instances) ? instances : [];
+      const shell = document.getElementById('detected-shell');
+      const summary = document.getElementById('detected-summary');
+      const instancesList = document.getElementById('detected-instances-list');
+      const launchersList = document.getElementById('detected-launchers-list');
+      if (!shell || !summary || !instancesList || !launchersList) return;
+      instancesList.innerHTML = '';
+      launchersList.innerHTML = '';
+      if (!detectedInstances.length) {
+        shell.classList.add('hidden');
+        summary.innerText = '0 instancias';
+        return;
+      }
+      shell.classList.remove('hidden');
+      const selectedPathRaw = preferredFolder || document.getElementById('input-folder').value || '';
+      summary.innerText = getDetectedSummaryText(selectedPathRaw);
+      const selectedPath = selectedPathRaw.toLowerCase();
+      detectedInstances.forEach((instance, index) => {
+        const instancePath = String(instanceField(instance, 'Path') || '');
+        const launcher = String(instanceField(instance, 'Launcher') || 'Minecraft');
+        const instanceName = String(instanceField(instance, 'InstanceName') || 'Instancia detectada');
+        const rootLabel = String(instanceField(instance, 'RootLabel') || '');
+        const installationType = String(instanceField(instance, 'InstallationType') || 'Instancia');
+        const description = [launcher, installationType === 'Instancia' ? '' : installationType].filter(Boolean).join(' · ');
+        const isActive = !!instancePath && instancePath.toLowerCase() === selectedPath;
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = `detected-item${isActive ? ' active' : ''}`;
+        item.innerHTML = `
+          <div class="detected-item-row" title="${escapeHtml(instancePath || rootLabel)}">
+            <span class="detected-item-name">${escapeHtml(instanceName)}</span>
+            <span class="detected-item-desc">${escapeHtml(description || launcher)}</span>
+          </div>`;
+        item.onclick = () => applyDetectedInstance(index);
+        instancesList.appendChild(item);
+      });
+      const launcherGroups = {};
+      detectedInstances.forEach((instance, index) => {
+        const key = String(instanceField(instance, 'Launcher') || 'Minecraft');
+        if (!launcherGroups[key]) launcherGroups[key] = [];
+        launcherGroups[key].push({ instance, index });
+      });
+      Object.keys(launcherGroups).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach((launcher, groupIndex) => {
+        const entries = launcherGroups[launcher];
+        const wrapper = document.createElement('div');
+        wrapper.className = 'launcher-group';
+        const header = document.createElement('button');
+        header.type = 'button';
+        header.className = `launcher-group-header${groupIndex === 0 ? ' open' : ''}`;
+        header.innerHTML = `<span>${escapeHtml(launcher)} <span class="text-slate-500">(${entries.length})</span></span><i class="fa-solid fa-chevron-down text-pokeYellow"></i>`;
+        const body = document.createElement('div');
+        body.className = `launcher-group-body${groupIndex === 0 ? ' open' : ''}`;
+        const bodyScroll = document.createElement('div');
+        bodyScroll.className = 'detected-scrollbox';
+        const bodyList = document.createElement('div');
+        bodyList.className = 'detected-list';
+        entries.forEach(entry => {
+          const instancePath = String(instanceField(entry.instance, 'Path') || '');
+          const instanceName = String(instanceField(entry.instance, 'InstanceName') || 'Instancia detectada');
+          const rootLabel = String(instanceField(entry.instance, 'RootLabel') || '');
+          const installationType = String(instanceField(entry.instance, 'InstallationType') || 'Instancia');
+          const description = installationType === 'Instancia' ? launcher : `${launcher} · ${installationType}`;
+          const isActive = !!instancePath && instancePath.toLowerCase() === selectedPath;
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = `detected-item${isActive ? ' active' : ''}`;
+          item.innerHTML = `
+            <div class="detected-item-row" title="${escapeHtml(instancePath || rootLabel)}">
+              <span class="detected-item-name">${escapeHtml(instanceName)}</span>
+              <span class="detected-item-desc">${escapeHtml(description)}</span>
+            </div>`;
+          item.onclick = () => applyDetectedInstance(entry.index);
+          bodyList.appendChild(item);
+        });
+        header.onclick = () => {
+          header.classList.toggle('open');
+          body.classList.toggle('open');
+        };
+        bodyScroll.appendChild(bodyList);
+        body.appendChild(bodyScroll);
+        wrapper.appendChild(header);
+        wrapper.appendChild(body);
+        launchersList.appendChild(wrapper);
+      });
+      document.getElementById('toggle-detected-instances').classList.add('open');
+      document.getElementById('detected-panel-instances').classList.add('open');
+    }
+    function toggleDetectedSection(section) {
+      const toggle = document.getElementById(`toggle-detected-${section}`);
+      const panel = document.getElementById(`detected-panel-${section}`);
+      if (!toggle || !panel) return;
+      toggle.classList.toggle('open');
+      panel.classList.toggle('open');
+    }
+    function applyDetectedInstance(index) {
+      const instance = detectedInstances[index];
+      const instancePath = String(instanceField(instance, 'Path') || '');
+      const instanceName = String(instanceField(instance, 'InstanceName') || 'Instancia');
+      const launcher = String(instanceField(instance, 'Launcher') || 'Minecraft');
+      if (!instance || !instancePath) return;
+      customPathPinned = false;
+      setFolderValue(instancePath);
+      send('selectDetectedInstance', { selectedPath: instancePath });
+      setDetectedInstances(detectedInstances, instancePath);
+      showToast('Instancia selecionada', `${instanceName} em ${launcher} foi aplicada ao caminho.`, 'fa-solid fa-circle-check text-emerald-500');
+    }
+    function escapeHtml(value) {
+      return String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('\"', '&quot;')
+        .replaceAll('\'', '&#39;');
+    }
     window.pokedogFromHost = function(msg) {
       if (!msg) return;
-      if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
-      if (msg.type === 'folder') { setFolderValue(msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. A instancia PokeDOG mais provavel foi selecionada.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
+      if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; customPathPinned = false; setDetectedInstances(msg.instances || [], msg.folder); return; }
+      if (msg.type === 'folder') { setFolderValue(msg.folder); customPathPinned = false; setDetectedInstances(msg.instances || detectedInstances, msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. Escolha abaixo a instancia ou launcher detectado.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { clearTimeout(verifyWatchdog); appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
       if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; setProgress(Math.max(currentProgress, 2)); appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; document.getElementById('dl-current-action').innerText = repairMode ? 'Preparando exclusao de mods, resourcepacks e shaderpacks...' : 'Preparando verificacao de arquivos e dependencias...'; return; }
       if (msg.type === 'log') { clearTimeout(installWatchdog); appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
@@ -886,7 +1091,16 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'toast') { showToast(msg.title || 'Aviso', msg.message || '', 'fa-solid fa-bell text-pokeYellow'); return; }
       if (msg.type === 'error') { clearTimeout(installWatchdog); clearTimeout(verifyWatchdog); isInstalling = false; const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; appendLog('ERRO: ' + (msg.message || 'falha desconhecida'), 'text-pokeRed font-bold'); showToast('Erro', msg.message || 'Falha desconhecida.', 'fa-solid fa-triangle-exclamation text-pokeRed'); }
     };
-    window.addEventListener('DOMContentLoaded', () => send('ready'));
+    window.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('input-folder');
+      if (input) {
+        input.addEventListener('input', () => {
+          customPathPinned = true;
+          setDetectedInstances(detectedInstances, input.value || '');
+        });
+      }
+      send('ready');
+    });
   </script>
 </body>
 </html>
@@ -1772,7 +1986,7 @@ internal sealed class InstallerForm : Form
 
 internal static class MinecraftInstanceLocator
 {
-    public static IReadOnlyList<string> FindInstances()
+    public static IReadOnlyList<DetectedInstanceEntry> FindInstanceEntries()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -1802,8 +2016,16 @@ internal static class MinecraftInstanceLocator
 
         return candidates
             .Where(IsMinecraftInstance)
-            .OrderByDescending(Score)
-            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Select(CreateEntry)
+            .OrderByDescending(entry => Score(entry.Path))
+            .ThenBy(entry => entry.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public static IReadOnlyList<string> FindInstances()
+    {
+        return FindInstanceEntries()
+            .Select(entry => entry.Path)
             .ToArray();
     }
 
@@ -1924,7 +2146,67 @@ internal static class MinecraftInstanceLocator
         }
         return score;
     }
+
+    private static DetectedInstanceEntry CreateEntry(string path)
+    {
+        var launcher = DetectLauncher(path);
+        var pathInfo = new DirectoryInfo(path);
+        var instanceName = string.Equals(pathInfo.Name, ".minecraft", StringComparison.OrdinalIgnoreCase) && pathInfo.Parent != null
+            ? pathInfo.Parent.Name + " / .minecraft"
+            : pathInfo.Name;
+        var rootLabel = DetectRootLabel(path);
+        var installationType = DetectInstallationType(path);
+        return new DetectedInstanceEntry(path, launcher, instanceName, rootLabel, installationType);
+    }
+
+    private static string DetectLauncher(string path)
+    {
+        if (path.Contains("curseforge", StringComparison.OrdinalIgnoreCase)) return "CurseForge";
+        if (path.Contains("sklauncher", StringComparison.OrdinalIgnoreCase)) return "SKLauncher";
+        if (path.Contains("prismlauncher", StringComparison.OrdinalIgnoreCase)) return "Prism Launcher";
+        if (path.Contains("multimc", StringComparison.OrdinalIgnoreCase)) return "MultiMC";
+        if (path.Contains("modrinth", StringComparison.OrdinalIgnoreCase) || path.Contains("theseus", StringComparison.OrdinalIgnoreCase)) return "Modrinth";
+        if (path.Contains(".atlauncher", StringComparison.OrdinalIgnoreCase)) return "ATLauncher";
+        if (path.Contains(".technic", StringComparison.OrdinalIgnoreCase)) return "Technic";
+        if (path.Contains("gdlauncher", StringComparison.OrdinalIgnoreCase)) return "GDLauncher";
+        if (path.Contains(@"\.minecraft\instances\", StringComparison.OrdinalIgnoreCase)) return "Minecraft Launcher";
+        if (path.Contains(@"\.minecraft", StringComparison.OrdinalIgnoreCase)) return "Minecraft";
+        return "Launcher detectado";
+    }
+
+    private static string DetectRootLabel(string path)
+    {
+        if (path.Contains(@"\.minecraft\instances\", StringComparison.OrdinalIgnoreCase)) return "%AppData%\\.minecraft\\instances";
+        if (path.Contains(@"\.minecraft", StringComparison.OrdinalIgnoreCase)) return "%AppData%\\.minecraft";
+        if (path.Contains(@"\curseforge\minecraft\instances", StringComparison.OrdinalIgnoreCase)) return "%UserProfile%\\curseforge\\minecraft\\Instances";
+        if (path.Contains(@"\CurseForge\minecraft\Instances", StringComparison.OrdinalIgnoreCase)) return "%LocalAppData%\\CurseForge\\minecraft\\Instances";
+        if (path.Contains("sklauncher", StringComparison.OrdinalIgnoreCase)) return "SKLauncher";
+        if (path.Contains("PrismLauncher", StringComparison.OrdinalIgnoreCase)) return "Prism Launcher";
+        if (path.Contains("MultiMC", StringComparison.OrdinalIgnoreCase)) return "MultiMC";
+        if (path.Contains("Modrinth", StringComparison.OrdinalIgnoreCase) || path.Contains("theseus", StringComparison.OrdinalIgnoreCase)) return "Modrinth";
+        if (path.Contains(".atlauncher", StringComparison.OrdinalIgnoreCase)) return "ATLauncher";
+        if (path.Contains(".technic", StringComparison.OrdinalIgnoreCase)) return "Technic";
+        if (path.Contains("gdlauncher", StringComparison.OrdinalIgnoreCase)) return "GDLauncher";
+        return "Instalacao detectada";
+    }
+
+    private static string DetectInstallationType(string path)
+    {
+        if (File.Exists(Path.Combine(path, ".pokedog-cache", "installed-state.json"))) return "PokeDOG";
+        if (path.Contains("pokedog", StringComparison.OrdinalIgnoreCase)) return "Modpack";
+        if (path.Contains("cobbleverse", StringComparison.OrdinalIgnoreCase)) return "Modpack";
+        if (string.Equals(new DirectoryInfo(path).Name, ".minecraft", StringComparison.OrdinalIgnoreCase)) return "Raiz";
+        return "Instancia";
+    }
 }
+
+internal sealed record DetectedInstanceEntry(
+    string Path,
+    string Launcher,
+    string InstanceName,
+    string RootLabel,
+    string InstallationType
+);
 
 internal static class InstallerUserSettings
 {
