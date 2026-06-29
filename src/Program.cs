@@ -2048,12 +2048,12 @@ internal static class InstallerEngine
             return null;
         }
 
-        var cacheName = $"cobbleverse_payload-{SanitizeFileName(payload.Version ?? "latest")}.zip";
+        var cachedPayload = GetCachedPayloadPath(payload, targetRoot);
         var candidates = new[]
         {
             localPayload,
             InstallerPaths.FindLocalPayloadMirror(payload),
-            Path.Combine(targetRoot, ".pokedog-cache", cacheName)
+            cachedPayload
         }
         .Where(path => !string.IsNullOrWhiteSpace(path))
         .Distinct(StringComparer.OrdinalIgnoreCase);
@@ -3269,9 +3269,7 @@ del /f /q "%~f0" >nul 2>nul
 
     private static string GetCachedPayloadPath(PayloadPackage? payload, string targetRoot)
     {
-        var cacheDir = Path.Combine(targetRoot, ".pokedog-cache");
-        var cacheName = $"cobbleverse_payload-{SanitizeFileName(payload?.Version ?? "latest")}.zip";
-        return Path.Combine(cacheDir, cacheName);
+        return Path.Combine(AppContext.BaseDirectory, "cobbleverse_payload.zip");
     }
 
     private static HashSet<string> GetManifestManagedRetainedFiles(PokeDogManifest manifest, IReadOnlyList<string> managedRoots)
