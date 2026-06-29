@@ -100,8 +100,8 @@ internal sealed class WebInstallerForm : Form
     public WebInstallerForm()
     {
         Text = "PokeDOG Modpack Installer";
-        MinimumSize = new Size(720, 660);
-        Size = new Size(760, 720);
+        MinimumSize = new Size(1120, 860);
+        Size = new Size(1320, 940);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(7, 9, 15);
         Icon = LoadIconSafe();
