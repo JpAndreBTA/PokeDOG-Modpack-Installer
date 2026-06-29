@@ -92,6 +92,7 @@ internal sealed class WebInstallerForm : Form
     private bool _fallbackOpened;
     private bool _startupUpdateChecked;
     private bool _receivedWebHandshake;
+    private bool _lastVerificationUpToDate;
 
     public WebInstallerForm()
     {
@@ -321,6 +322,7 @@ internal sealed class WebInstallerForm : Form
         try
         {
             var installerUpdated = false;
+            var actionsNeeded = false;
             var options = new InstallerOptions(InstallerPaths.FindDefaultManifest(), target, dryRun, InstallerPaths.FindDefaultPayload(), forceRepair);
             var log = new WebProgressLog(line =>
             {
@@ -329,10 +331,18 @@ internal sealed class WebInstallerForm : Form
                 {
                     installerUpdated = true;
                 }
+                if (dryRun && InstallerEngine.LogLineSuggestsRepairOrUpdate(line))
+                {
+                    actionsNeeded = true;
+                }
                 _ = SendAsync(new { type = "log", line });
             }, percent => _ = SendAsync(new { type = "progress", percent }));
             await Task.Run(async () => await InstallerEngine.RunAsync(options, log, _disposeToken.Token), _disposeToken.Token);
-            await SendAsync(new { type = dryRun ? "verified" : "installed", installerUpdated, forceRepair });
+            if (dryRun)
+            {
+                _lastVerificationUpToDate = !actionsNeeded;
+            }
+            await SendAsync(new { type = dryRun ? "verified" : "installed", installerUpdated, forceRepair, upToDate = dryRun ? !actionsNeeded : _lastVerificationUpToDate });
         }
         catch (OperationCanceledException)
         {
@@ -638,7 +648,7 @@ internal sealed class WebInstallerForm : Form
 
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
+    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
 
     function send(type, extra) {
       const input = document.getElementById('input-folder');
@@ -661,7 +671,15 @@ internal sealed class WebInstallerForm : Form
     function handleNext() {
       if (activeStep === 1) return goToStep(2);
       if (activeStep === 2 && !isVerified) return showToast('Aviso', 'Inicie a verificacao de arquivos primeiro.', 'fa-solid fa-circle-exclamation text-pokeYellow');
-      if (activeStep === 2) { goToStep(3); return startInstall(false); }
+      if (activeStep === 2) {
+        if (verificationUpToDate) {
+          const wantsRepair = window.confirm('A instalacao ja esta atualizada e funcional. Deseja fazer um reparo limpo mesmo assim?');
+          if (wantsRepair) { return startRepair(); }
+          showToast('Sem alteracoes', 'A instalacao ja esta em dia. Use Reparar Limpo apenas quando quiser reinstalar tudo.', 'fa-solid fa-circle-check text-emerald-500');
+          return;
+        }
+        goToStep(3); return startInstall(false);
+      }
       if (activeStep === 3 && isInstalling) return showToast('Processando', 'Aguarde a instalacao terminar.', 'fa-solid fa-cloud-arrow-down text-pokeYellow');
       if (activeStep === 3) return goToStep(4);
       send('close');
@@ -707,7 +725,7 @@ internal sealed class WebInstallerForm : Form
       area.appendChild(div); area.scrollTop = area.scrollHeight; logCount++; document.getElementById('log-counter').innerText = `${logCount} eventos`;
     }
     function startVerify() {
-      playBeep(400,100); isVerified = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
+      playBeep(400,100); isVerified = false; verificationUpToDate = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
       const btn = document.getElementById('btn-start-verify'); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> ESCANEANDO...'; btn.classList.add('text-slate-500');
       const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = true; repairBtn.classList.add('opacity-50','cursor-not-allowed'); repairBtn.classList.remove('text-white','border-pokeRed');
       clearTimeout(verifyWatchdog);
@@ -775,7 +793,7 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; return; }
       if (msg.type === 'log') { clearTimeout(installWatchdog); appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { clearTimeout(installWatchdog); setProgress(msg.percent); return; }
-      if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = false; repairBtn.classList.remove('opacity-50','cursor-not-allowed'); repairBtn.classList.add('text-white','border-pokeRed'); appendLog('Verificacao concluida. Clique em Avancar ou use Reparo Limpo.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar ou reparar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
+      if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; verificationUpToDate = !!msg.upToDate; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = false; repairBtn.classList.remove('opacity-50','cursor-not-allowed'); repairBtn.classList.add('text-white','border-pokeRed'); appendLog(verificationUpToDate ? 'Verificacao concluida. Instalacao ja esta em dia; o instalador pode reparar se voce quiser.' : 'Verificacao concluida. Clique em Avancar ou use Reparo Limpo.', 'text-emerald-400 font-bold'); showToast('Verificado!', verificationUpToDate ? 'Instalacao atualizada e funcional. O instalador vai perguntar antes de reparar.' : 'Pronto para sincronizar ou reparar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
       if (msg.type === 'installed') {
         clearTimeout(installWatchdog);
         isInstalling = false;
@@ -832,6 +850,7 @@ internal sealed class InstallerForm : Form
     private readonly Button _payloadButton = new();
     private readonly CancellationTokenSource _disposeToken = new();
     private readonly bool? _autoRunDryRun;
+    private bool _lastVerificationUpToDate;
     private readonly Panel[] _stepNodes = new Panel[5];
     private readonly Panel[] _stepLines = new Panel[4];
     private readonly Label[] _stepLabels = new Label[5];
@@ -981,6 +1000,25 @@ internal sealed class InstallerForm : Form
 
     private async Task RunInstallAsync(bool dryRun, bool forceRepair = false)
     {
+        if (!dryRun && !forceRepair && _lastVerificationUpToDate)
+        {
+            var choice = MessageBox.Show(
+                this,
+                "A instalacao ja esta atualizada e funcional. Deseja fazer um reparo limpo mesmo assim?",
+                "PokeDOG Modpack Installer",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (choice == DialogResult.Yes)
+            {
+                forceRepair = true;
+            }
+            else
+            {
+                AppendLog("Instalacao em dia. Nenhuma alteracao aplicada.");
+                return;
+            }
+        }
+
         SetBusy(true);
         _progressBar.Value = 0;
         _logBox.Clear();
@@ -994,6 +1032,7 @@ internal sealed class InstallerForm : Form
                     : "Baixando e aplicando somente o que faltar ou estiver desatualizado.");
         try
         {
+            var actionsNeeded = false;
             var options = new InstallerOptions(
                 _manifestBox.Text.Trim(),
                 _targetBox.Text.Trim(),
@@ -1009,6 +1048,10 @@ internal sealed class InstallerForm : Form
                 {
                     installerUpdated = true;
                 }
+                if (dryRun && InstallerEngine.LogLineSuggestsRepairOrUpdate(line))
+                {
+                    actionsNeeded = true;
+                }
                 UpdateStageFromLog(line);
                 AppendLog(line);
             }, value =>
@@ -1016,12 +1059,18 @@ internal sealed class InstallerForm : Form
                 UpdateProgress(value);
             });
             await Task.Run(async () => await InstallerEngine.RunAsync(options, log, _disposeToken.Token), _disposeToken.Token);
+            if (dryRun)
+            {
+                _lastVerificationUpToDate = !actionsNeeded;
+            }
             AppendLog(dryRun ? "Verificacao concluida." : forceRepair ? "Reparo limpo concluido." : "Instalacao/atualizacao concluida.");
             SetStepState(4);
             SetStageText(
                 dryRun ? "Verificacao concluida" : forceRepair ? "Reparo concluido" : "Instalacao concluida",
                 dryRun
-                    ? "A instancia escolhida foi validada. Se precisar, siga para instalar."
+                    ? _lastVerificationUpToDate
+                        ? "A instancia escolhida ja esta atualizada e funcional. O reparo limpo permanece disponivel se voce quiser reinstalar tudo."
+                        : "A instancia escolhida foi validada. Se precisar, siga para instalar."
                     : forceRepair
                         ? "Mods, resourcepacks, shaderpacks e guard foram reinstalados com limpeza na pasta selecionada."
                         : "Mods, resourcepacks, shaderpacks e guard foram sincronizados na pasta selecionada.");
@@ -1889,6 +1938,25 @@ internal static class InstallerEngine
         AllowTrailingCommas = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
+
+    internal static bool LogLineSuggestsRepairOrUpdate(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        return line.Contains("Instancia incompleta", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("DRY DOWNLOAD", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("faltando ", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("divergente", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("Payload verificado:", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("Limpeza planejada:", StringComparison.OrdinalIgnoreCase) ||
+            line.StartsWith("VERIFICAR ", StringComparison.OrdinalIgnoreCase) ||
+            line.StartsWith("ATUALIZAR ", StringComparison.OrdinalIgnoreCase) ||
+            line.StartsWith("BAIXAR ", StringComparison.OrdinalIgnoreCase) ||
+            line.StartsWith("REMOVER ", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static async Task RunAsync(InstallerOptions options, IInstallerLog log, CancellationToken cancellationToken)
     {
