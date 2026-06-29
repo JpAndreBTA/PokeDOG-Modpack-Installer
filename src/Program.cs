@@ -2780,13 +2780,6 @@ internal static class InstallerEngine
             throw new InvalidOperationException("Nao foi possivel localizar o executavel atual para auto-update.");
         }
 
-        if (!IsNewerVersion(installer.Version, thisVersion))
-        {
-            log.Write($"Atualizador: versao remota {installer.Version} nao e superior a versao atual {thisVersion}. Seguindo sem auto-update.");
-            log.ReportProgress(10);
-            return false;
-        }
-
         var currentHash = await Sha256FileAsync(currentExe, cancellationToken);
         if (currentHash.Equals(installer.Sha256, StringComparison.OrdinalIgnoreCase))
         {
@@ -2795,7 +2788,16 @@ internal static class InstallerEngine
             return false;
         }
 
-        log.Write($"Nova revisao do instalador disponivel: {installer.Version}");
+        var hasNewerVersion = IsNewerVersion(installer.Version, thisVersion);
+        if (!hasNewerVersion)
+        {
+            log.Write($"Atualizador: mesma versao {thisVersion}, mas hash remoto diferente detectado. Aplicando revisao publicada do instalador.");
+        }
+        else
+        {
+            log.Write($"Nova revisao do instalador disponivel: {installer.Version}");
+        }
+
         var destination = currentExe + ".update";
         await DownloadAndVerifyAsync(installer.Url, installer.Sha256, destination, http, dryRun, log, cancellationToken, installer.Size > 0 ? installer.Size : null, 10, 25, "Atualizador do installer");
         if (dryRun)
