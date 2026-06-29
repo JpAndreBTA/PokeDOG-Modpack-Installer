@@ -5,7 +5,7 @@
     "displayVersion": "v0.1.0",
     "version": "0.1.0",
     "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/PokeDOG-Modpack-Installer.exe",
-    "sha256": "c8d4a4e7c3321701ccf516ff03b6a42c70d251c29d26a30ba857b07561d3282c",
+    "sha256": "5549e9605c9871ab0ac635897671e2f02359022838d3f4aed129e917640464a5",
     "size": 86520120
   },
   "payload": {
@@ -13,9 +13,7 @@
     "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/cobbleverse_payload.zip",
     "sha256": "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
     "size": 517312831,
-    "mirrors": [
-      "https://drive.google.com/uc?export=download&id=1LjKng-x3VyinhY0IghU8wl5PDN1kT-8d"
-    ],
+    "mirrors": [],
     "managedRoots": [
       "mods",
       "resourcepacks",

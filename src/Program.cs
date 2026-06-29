@@ -37,7 +37,7 @@ internal static class Program
         {
             return 0;
         }
-        Application.Run(new InstallerForm());
+        Application.Run(new WebInstallerForm());
         return 0;
     }
 
@@ -224,10 +224,10 @@ internal sealed class WebInstallerForm : Form
                     });
                     break;
                 case "verify":
-                    OpenCompatibilityFromWeb(root, dryRun: true);
+                    await RunInstallerFromWebAsync(root, dryRun: true);
                     break;
                 case "install":
-                    OpenCompatibilityFromWeb(root, dryRun: false);
+                    await RunInstallerFromWebAsync(root, dryRun: false);
                     break;
                 case "openCompatibility":
                     OpenCompatibilityMode(new InvalidOperationException("Fallback solicitado pela interface."));
@@ -376,7 +376,8 @@ internal sealed class WebInstallerForm : Form
             Directory.CreateDirectory(outputDir);
             if (!File.Exists(outputPath))
             {
-                using var input = Assembly.GetExecutingAssembly().GetManifestResourceStream("pokedog_background.png");
+                using var input = Assembly.GetExecutingAssembly().GetManifestResourceStream("pokedog_background_main.png")
+                    ?? Assembly.GetExecutingAssembly().GetManifestResourceStream("pokedog_background.png");
                 if (input != null)
                 {
                     using var output = File.Create(outputPath);
@@ -1949,9 +1950,9 @@ internal static class InstallerEngine
             }
             else
             {
-            log.Write($"Cobbleverse base ja instalada: {payload?.Version}");
-            log.ReportProgress(45);
-            return null;
+                log.Write($"Cobbleverse base ja instalada: {payload?.Version}");
+                log.ReportProgress(45);
+                return null;
             }
         }
 
@@ -2103,17 +2104,17 @@ internal static class InstallerEngine
 
     private static IEnumerable<string> GetPayloadDownloadUrls(PayloadPackage payload)
     {
+        if (!string.IsNullOrWhiteSpace(payload.Url))
+        {
+            yield return NormalizeDownloadUrl(payload.Url);
+        }
+
         foreach (var mirror in payload.Mirrors ?? Array.Empty<string>())
         {
             if (!string.IsNullOrWhiteSpace(mirror))
             {
                 yield return NormalizeDownloadUrl(mirror);
             }
-        }
-
-        if (!string.IsNullOrWhiteSpace(payload.Url))
-        {
-            yield return NormalizeDownloadUrl(payload.Url);
         }
     }
 
@@ -3497,7 +3498,6 @@ internal static class InstallerPaths
     private const string RemoteManifestUrl = "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/latest/download/manifest.json";
     private static readonly string[] LocalMirrorRoots =
     [
-        @"H:\Meu Drive\PokeDOG",
         Path.Combine(AppContext.BaseDirectory, "PokeDOG"),
         Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente"),
         AppContext.BaseDirectory
@@ -3516,9 +3516,7 @@ internal static class InstallerPaths
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "pokedog_manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "manifest.json"),
-            Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"),
-            @"H:\Meu Drive\PokeDOG\manifest.json",
-            @"H:\Meu Drive\PokeDOG\pokedog_manifest.json");
+            Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"));
     }
 
     public static string FindDefaultPayload()
