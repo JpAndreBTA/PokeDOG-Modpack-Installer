@@ -1995,11 +1995,18 @@ internal static class InstallerEngine
     private static async Task<string?> ResolvePayloadAsync(string localPayload, PokeDogManifest manifest, InstalledState? installState, string targetRoot, HttpClient http, bool dryRun, bool forceRepair, IInstallerLog log, CancellationToken cancellationToken)
     {
         var payload = manifest.Payload;
+        var missingManagedRoots = GetMissingManagedRoots(targetRoot, payload);
+        var incompleteManagedRoots = missingManagedRoots.Count > 0;
+        if (incompleteManagedRoots)
+        {
+            log.Write($"Instancia incompleta: pastas gerenciadas ausentes em {string.Join(", ", missingManagedRoots)}. O Cobbleverse sera reaplicado para corrigir a instalacao.");
+        }
+
         if (forceRepair)
         {
             log.Write("Reparo limpo solicitado. O Cobbleverse payload sera reaplicado mesmo que a instancia ja esteja atualizada.");
         }
-        else if (IsPayloadInstalled(manifest, installState))
+        else if (!incompleteManagedRoots && IsPayloadInstalled(manifest, installState))
         {
             if (HasPayloadInventory(installState))
             {
@@ -2039,11 +2046,21 @@ internal static class InstallerEngine
 
             if (payload is { Sha256.Length: > 0 })
             {
-                var localHash = await Sha256FileAsync(payloadCandidate, cancellationToken);
+                log.Write($"Validando hash do payload local: {payloadCandidate}");
+                var localHash = await Sha256FileWithProgressAsync(payloadCandidate, log, cancellationToken, 8, 18, "Cobbleverse local");
                 if (localHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (forceRepair || incompleteManagedRoots)
+                    {
+                        log.Write(forceRepair
+                            ? $"Cobbleverse local validado para reparo limpo: {payloadCandidate}"
+                            : $"Cobbleverse local validado para corrigir pastas ausentes: {payloadCandidate}");
+                        log.ReportProgress(45);
+                        return payloadCandidate;
+                    }
+
                     log.Write($"Validando inventario do payload local: {payloadCandidate}");
-                    if (await LooksLikePayloadAlreadyInstalledAsync(payloadCandidate, manifest, targetRoot, log, cancellationToken, 5, 45))
+                    if (await LooksLikePayloadAlreadyInstalledAsync(payloadCandidate, manifest, targetRoot, log, cancellationToken, 18, 45))
                     {
                         log.Write($"Cobbleverse base confirmada por inventario local: {payload?.Version}");
                         log.ReportProgress(45);
@@ -2076,11 +2093,21 @@ internal static class InstallerEngine
 
         if (File.Exists(cachedPayload))
         {
-            var cachedHash = await Sha256FileAsync(cachedPayload, cancellationToken);
+            log.Write($"Validando hash do payload em cache: {cachedPayload}");
+            var cachedHash = await Sha256FileWithProgressAsync(cachedPayload, log, cancellationToken, 8, 18, "Cobbleverse em cache");
             if (cachedHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
             {
+                if (forceRepair || incompleteManagedRoots)
+                {
+                    log.Write(forceRepair
+                        ? $"Cobbleverse em cache validado para reparo limpo: {cachedPayload}"
+                        : $"Cobbleverse em cache validado para corrigir pastas ausentes: {cachedPayload}");
+                    log.ReportProgress(45);
+                    return cachedPayload;
+                }
+
                 log.Write($"Validando inventario do payload em cache: {cachedPayload}");
-                if (await LooksLikePayloadAlreadyInstalledAsync(cachedPayload, manifest, targetRoot, log, cancellationToken, 5, 45))
+                if (await LooksLikePayloadAlreadyInstalledAsync(cachedPayload, manifest, targetRoot, log, cancellationToken, 18, 45))
                 {
                     log.Write($"Cobbleverse base confirmada por cache local: {payload?.Version}");
                     log.ReportProgress(45);
@@ -3278,6 +3305,22 @@ del /f /q "%~f0" >nul 2>nul
         return false;
     }
 
+    private static IReadOnlyList<string> GetMissingManagedRoots(string targetRoot, PayloadPackage? payload)
+    {
+        var missing = new List<string>();
+        foreach (var root in NormalizeManagedRoots(payload?.ManagedRoots))
+        {
+            var absoluteRoot = Path.Combine(targetRoot, root);
+            EnsureInsideRoot(absoluteRoot, targetRoot);
+            if (!Directory.Exists(absoluteRoot))
+            {
+                missing.Add(root);
+            }
+        }
+
+        return missing;
+    }
+
     private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(string payloadPath, PokeDogManifest manifest, string targetRoot, IInstallerLog log, CancellationToken cancellationToken, int progressStart = 5, int progressEnd = 45)
     {
         await Task.Yield();
@@ -3467,6 +3510,46 @@ del /f /q "%~f0" >nul 2>nul
         await using var stream = File.OpenRead(path);
         var hash = await SHA256.HashDataAsync(stream, cancellationToken);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static async Task<string> Sha256FileWithProgressAsync(string path, IInstallerLog log, CancellationToken cancellationToken, int progressStart, int progressEnd, string label)
+    {
+        await using var stream = File.OpenRead(path);
+        using var sha = SHA256.Create();
+        var totalBytes = Math.Max(stream.Length, 1L);
+        var buffer = new byte[1024 * 128];
+        long processed = 0;
+        var lastLoggedPercent = -1;
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            sha.TransformBlock(buffer, 0, read, null, 0);
+            processed += read;
+            var percent = (int)Math.Floor(processed * 100d / totalBytes);
+            if (progressEnd > progressStart)
+            {
+                log.ReportProgress(progressStart + percent * (progressEnd - progressStart) / 100);
+            }
+
+            if (percent >= lastLoggedPercent + 10 || percent == 100)
+            {
+                lastLoggedPercent = percent;
+                log.Write($"HASH {label}: {FormatBytes(processed)} / {FormatBytes(totalBytes)} ({percent}%)");
+            }
+        }
+
+        sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+        if (progressEnd > progressStart)
+        {
+            log.ReportProgress(progressEnd);
+        }
+        return Convert.ToHexString(sha.Hash!).ToLowerInvariant();
     }
 
     private static async Task<string> Sha256ZipEntryAsync(ZipArchiveEntry entry, CancellationToken cancellationToken)
