@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -88,6 +89,8 @@ internal sealed class WebInstallerForm : Form
 {
     private readonly WebView2 _web = new();
     private readonly CancellationTokenSource _disposeToken = new();
+    private readonly ConcurrentQueue<object> _pendingWebMessages = new();
+    private readonly System.Windows.Forms.Timer _webFlushTimer = new() { Interval = 35 };
     private bool _busy;
     private bool _fallbackOpened;
     private bool _startupUpdateChecked;
@@ -105,8 +108,13 @@ internal sealed class WebInstallerForm : Form
 
         _web.Dock = DockStyle.Fill;
         Controls.Add(_web);
+        _webFlushTimer.Tick += async (_, _) => await FlushPendingWebMessagesAsync();
         Load += async (_, _) => await InitializeWebAsync();
-        FormClosed += (_, _) => _disposeToken.Cancel();
+        FormClosed += (_, _) =>
+        {
+            _disposeToken.Cancel();
+            _webFlushTimer.Stop();
+        };
     }
 
     private async Task InitializeWebAsync()
@@ -335,9 +343,10 @@ internal sealed class WebInstallerForm : Form
                 {
                     actionsNeeded = true;
                 }
-                _ = SendAsync(new { type = "log", line });
-            }, percent => _ = SendAsync(new { type = "progress", percent }));
+                EnqueueWebMessage(new { type = "log", line });
+            }, percent => EnqueueWebMessage(new { type = "progress", percent }));
             await Task.Run(async () => await InstallerEngine.RunAsync(options, log, _disposeToken.Token), _disposeToken.Token);
+            await FlushPendingWebMessagesAsync();
             if (dryRun)
             {
                 _lastVerificationUpToDate = !actionsNeeded;
@@ -373,6 +382,50 @@ internal sealed class WebInstallerForm : Form
         }
 
         await _web.CoreWebView2.ExecuteScriptAsync($"window.pokedogFromHost({json});");
+    }
+
+    private void EnqueueWebMessage(object message)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        _pendingWebMessages.Enqueue(message);
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)(() =>
+            {
+                if (!_webFlushTimer.Enabled)
+                {
+                    _webFlushTimer.Start();
+                }
+            }));
+            return;
+        }
+
+        if (!_webFlushTimer.Enabled)
+        {
+            _webFlushTimer.Start();
+        }
+    }
+
+    private async Task FlushPendingWebMessagesAsync()
+    {
+        if (IsDisposed || _web.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        while (_pendingWebMessages.TryDequeue(out var message))
+        {
+            await SendAsync(message);
+        }
+
+        if (_pendingWebMessages.IsEmpty)
+        {
+            _webFlushTimer.Stop();
+        }
     }
 
     private static string GetDefaultMinecraftFolder()
@@ -596,6 +649,7 @@ internal sealed class WebInstallerForm : Form
           <div class="space-y-2">
             <div class="flex justify-between font-silkscreen text-[10px] text-slate-400"><span>Sincronizando Modpack</span><span id="dl-percentage" class="text-pokeYellow font-bold">0%</span></div>
             <div class="w-full h-3 bg-[#07090f] border-2 border-slate-900 rounded overflow-hidden p-[1px]"><div id="dl-progress-bar" class="h-full bg-gradient-to-r from-pokeRed to-pokeYellow rounded-sm transition-all duration-100 ease-out" style="width:0%"></div></div>
+            <div id="dl-current-action" class="font-terminal text-xs text-slate-300 min-h-[18px]">Aguardando inicio da sincronizacao...</div>
             <div class="flex justify-between font-terminal text-xs text-slate-500"><span id="dl-loaded-mb">0.0 MB / 494.8 MB</span><span>Tempo Restante: <span id="dl-eta" class="text-slate-400">Calculando...</span></span></div>
           </div>
           <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-900/60 font-terminal text-xs">
@@ -608,17 +662,6 @@ internal sealed class WebInstallerForm : Form
             <div id="stage-payload" class="stage-pill">Cobbleverse</div>
             <div id="stage-files" class="stage-pill">Arquivos</div>
             <div id="stage-clean" class="stage-pill">Limpeza</div>
-          </div>
-          <div class="space-y-1 pt-2 border-t border-slate-900/60">
-            <div class="flex justify-between items-center px-1">
-              <span class="font-silkscreen text-[10px] text-slate-500 uppercase tracking-wider">Console da Instalacao</span>
-              <span id="install-log-counter" class="font-terminal text-xs text-slate-500">0 eventos</span>
-            </div>
-            <div class="relative bg-[#07090f] border-2 border-slate-900 rounded p-3 overflow-hidden">
-              <div id="install-logs" class="h-32 overflow-y-auto font-terminal text-[12px] text-slate-400 space-y-1 pr-1 leading-normal">
-                <div class="text-slate-600 terminal-line">[CONSOLE] Aguardando logs da sincronizacao real...</div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -734,15 +777,6 @@ internal sealed class WebInstallerForm : Form
       const area = document.getElementById('terminal-logs'); const ts = new Date().toLocaleTimeString('pt-BR');
       const div = document.createElement('div'); div.className = `terminal-line ${tone || 'text-slate-400'}`; div.textContent = `[${ts}] ${line}`;
       area.appendChild(div); area.scrollTop = area.scrollHeight; logCount++; document.getElementById('log-counter').innerText = `${logCount} eventos`;
-      const installArea = document.getElementById('install-logs');
-      if (installArea) {
-        const installDiv = document.createElement('div');
-        installDiv.className = `terminal-line ${tone || 'text-slate-400'}`;
-        installDiv.textContent = `[${ts}] ${line}`;
-        installArea.appendChild(installDiv);
-        installArea.scrollTop = installArea.scrollHeight;
-        document.getElementById('install-log-counter').innerText = `${logCount} eventos`;
-      }
     }
     function startVerify() {
       playBeep(400,100); isVerified = false; verificationUpToDate = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
@@ -763,8 +797,7 @@ internal sealed class WebInstallerForm : Form
     function startInstall(forceRepair) {
       repairMode = !!forceRepair;
       isInstalling = true; updateNextButtonState(false); setProgress(1); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = repairMode ? 'Preparando reparo limpo do modpack...' : 'Preparando sincronizacao real do modpack...';
-      const installArea = document.getElementById('install-logs'); if (installArea) installArea.innerHTML = '<div class=\"text-slate-600 terminal-line\">[CONSOLE] Preparando console da instalacao...</div>';
-      document.getElementById('install-log-counter').innerText = `${logCount} eventos`;
+      document.getElementById('dl-current-action').innerText = repairMode ? 'Aguardando exclusao e reinstalacao do payload...' : 'Aguardando validacao do manifesto e do payload...';
       clearTimeout(installWatchdog);
       installWatchdog = setTimeout(() => {
         showToast('Compatibilidade', 'A interface moderna travou em 0%. Abrindo modo de compatibilidade...', 'fa-solid fa-screwdriver-wrench text-pokeYellow');
@@ -792,6 +825,21 @@ internal sealed class WebInstallerForm : Form
       }
       document.getElementById('dl-eta').innerText = currentProgress >= 100 ? 'Finalizando...' : stage === 'clean' ? 'Limpando...' : 'Calculando...';
     }
+    function summarizeInstallLine(text) {
+      if (!text) return 'Processando arquivos do modpack...';
+      if (/^ATUALIZAR /i.test(text)) return 'Instalando: ' + text.replace(/^ATUALIZAR /i, '');
+      if (/^VERIFICAR /i.test(text)) return 'Verificando payload: ' + text.replace(/^VERIFICAR /i, '');
+      if (/^REMOVER /i.test(text)) return 'Excluindo: ' + text.replace(/^REMOVER /i, '');
+      if (/^BAIXAR /i.test(text)) return 'Baixando: ' + text.replace(/^BAIXAR /i, '');
+      if (/^DOWNLOAD iniciando /i.test(text)) return 'Baixando: ' + text.replace(/^DOWNLOAD iniciando /i, '');
+      if (/^DOWNLOAD concluido /i.test(text)) return 'Baixado: ' + text.replace(/^DOWNLOAD concluido /i, '');
+      if (/^DOWNLOAD /i.test(text)) return text;
+      if (/^Payload local:/i.test(text)) return 'Descompactando: cobbleverse_payload.zip';
+      if (/^Payload aplicado:/i.test(text)) return text;
+      if (/^Instalacao limpa:/i.test(text)) return text;
+      if (/^Limpeza:/i.test(text)) return text;
+      return text;
+    }
     function updateInstallStatus(line) {
       const text = line || '';
       if (/manifesto/i.test(text)) setStage('manifest');
@@ -799,7 +847,7 @@ internal sealed class WebInstallerForm : Form
       if (/payload|Cobbleverse|cobbleverse/i.test(text)) setStage('payload');
       if (/DELTA|ATUALIZAR|VERIFICAR|BAIXAR mods|mods\\|mods\//i.test(text)) setStage('files');
       if (/REMOVER|Limpeza/i.test(text)) setStage('clean');
-      if (activeStep === 3) document.getElementById('dl-current-file').innerText = text;
+      if (activeStep === 3) document.getElementById('dl-current-action').innerText = summarizeInstallLine(text);
     }
     function setFolderValue(folder) {
       const input = document.getElementById('input-folder');
@@ -812,7 +860,7 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
       if (msg.type === 'folder') { setFolderValue(msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. A instancia PokeDOG mais provavel foi selecionada.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { clearTimeout(verifyWatchdog); appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
-      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; setProgress(Math.max(currentProgress, 2)); appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; return; }
+      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; setProgress(Math.max(currentProgress, 2)); appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; document.getElementById('dl-current-action').innerText = repairMode ? 'Preparando exclusao de mods, resourcepacks e shaderpacks...' : 'Preparando verificacao de arquivos e dependencias...'; return; }
       if (msg.type === 'log') { clearTimeout(installWatchdog); appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { clearTimeout(installWatchdog); setProgress(msg.percent); return; }
       if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; verificationUpToDate = !!msg.upToDate; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = false; repairBtn.classList.remove('opacity-50','cursor-not-allowed'); repairBtn.classList.add('text-white','border-pokeRed'); appendLog(verificationUpToDate ? 'Verificacao concluida. Instalacao ja esta em dia; o instalador pode reparar se voce quiser.' : 'Verificacao concluida. Clique em Avancar ou use Reparo Limpo.', 'text-emerald-400 font-bold'); showToast('Verificado!', verificationUpToDate ? 'Instalacao atualizada e funcional. O instalador vai perguntar antes de reparar.' : 'Pronto para sincronizar ou reparar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
@@ -823,6 +871,7 @@ internal sealed class WebInstallerForm : Form
         const installerUpdated = !!msg.installerUpdated;
         repairMode = !!msg.forceRepair;
         document.getElementById('dl-current-file').innerText = installerUpdated ? 'Instalador atualizado. Reabra para concluir.' : 'Instalacao finalizada.';
+        document.getElementById('dl-current-action').innerText = installerUpdated ? 'Atualizacao do instalador concluida.' : (repairMode ? 'Reinstalacao limpa concluida na instancia selecionada.' : 'Sincronizacao concluida na instancia selecionada.');
         document.getElementById('done-message').innerText = installerUpdated
           ? 'O PokeDOG-Modpack-Installer foi atualizado antes de continuar a instalacao do modpack.'
           : (repairMode ? 'O modpack PokeDOG foi reparado com reinstalacao limpa na instancia selecionada.' : 'O modpack PokeDOG foi instalado e atualizado no seu diretorio de jogo.');
@@ -2447,6 +2496,13 @@ internal static class InstallerEngine
         if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
         {
             throw new InvalidOperationException("Nao foi possivel localizar o executavel atual para auto-update.");
+        }
+
+        if (!IsNewerVersion(installer.Version, thisVersion))
+        {
+            log.Write($"Atualizador: versao remota {installer.Version} nao e superior a versao atual {thisVersion}. Seguindo sem auto-update.");
+            log.ReportProgress(10);
+            return false;
         }
 
         var currentHash = await Sha256FileAsync(currentExe, cancellationToken);
