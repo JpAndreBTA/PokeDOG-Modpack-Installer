@@ -227,7 +227,10 @@ internal sealed class WebInstallerForm : Form
                     await RunInstallerFromWebAsync(root, dryRun: true);
                     break;
                 case "install":
-                    await RunInstallerFromWebAsync(root, dryRun: false);
+                    await RunInstallerFromWebAsync(root, dryRun: false, forceRepair: false);
+                    break;
+                case "repair":
+                    await RunInstallerFromWebAsync(root, dryRun: false, forceRepair: true);
                     break;
                 case "openCompatibility":
                     OpenCompatibilityMode(new InvalidOperationException("Fallback solicitado pela interface."));
@@ -296,7 +299,7 @@ internal sealed class WebInstallerForm : Form
         }
     }
 
-    private async Task RunInstallerFromWebAsync(JsonElement root, bool dryRun)
+    private async Task RunInstallerFromWebAsync(JsonElement root, bool dryRun, bool forceRepair = false)
     {
         if (_busy)
         {
@@ -314,11 +317,11 @@ internal sealed class WebInstallerForm : Form
         InstallerUserSettings.SaveLastTargetRoot(target);
 
         _busy = true;
-        await SendAsync(new { type = dryRun ? "verifyStarted" : "installStarted" });
+        await SendAsync(new { type = dryRun ? "verifyStarted" : "installStarted", forceRepair });
         try
         {
             var installerUpdated = false;
-            var options = new InstallerOptions(InstallerPaths.FindDefaultManifest(), target, dryRun, InstallerPaths.FindDefaultPayload());
+            var options = new InstallerOptions(InstallerPaths.FindDefaultManifest(), target, dryRun, InstallerPaths.FindDefaultPayload(), forceRepair);
             var log = new WebProgressLog(line =>
             {
                 if (line.Contains("Instalador atualizado", StringComparison.OrdinalIgnoreCase)
@@ -329,7 +332,7 @@ internal sealed class WebInstallerForm : Form
                 _ = SendAsync(new { type = "log", line });
             }, percent => _ = SendAsync(new { type = "progress", percent }));
             await InstallerEngine.RunAsync(options, log, _disposeToken.Token);
-            await SendAsync(new { type = dryRun ? "verified" : "installed", installerUpdated });
+            await SendAsync(new { type = dryRun ? "verified" : "installed", installerUpdated, forceRepair });
         }
         catch (OperationCanceledException)
         {
@@ -563,9 +566,14 @@ internal sealed class WebInstallerForm : Form
           </div>
         </div>
         <div class="flex justify-center">
-          <button id="btn-start-verify" onclick="startVerify()" class="bg-slate-900 hover:bg-slate-800 text-white font-silkscreen text-[10px] px-4 py-2 rounded transition-all flex items-center gap-2 border-2 border-slate-950">
-            <i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> INICIAR VERIFICACAO
-          </button>
+          <div class="flex flex-wrap justify-center gap-2">
+            <button id="btn-start-verify" onclick="startVerify()" class="bg-slate-900 hover:bg-slate-800 text-white font-silkscreen text-[10px] px-4 py-2 rounded transition-all flex items-center gap-2 border-2 border-slate-950">
+              <i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> INICIAR VERIFICACAO
+            </button>
+            <button id="btn-start-repair" onclick="startRepair()" class="bg-slate-950 text-slate-500 font-silkscreen text-[10px] px-4 py-2 rounded transition-all flex items-center gap-2 border-2 border-slate-900 opacity-50 cursor-not-allowed" disabled>
+              <i class="fa-solid fa-screwdriver-wrench text-pokeRed"></i> REPARAR LIMPO
+            </button>
+          </div>
         </div>
       </div>
 
@@ -630,7 +638,7 @@ internal sealed class WebInstallerForm : Form
 
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let activeStep = 1, isVerified = false, isInstalling = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
+    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
 
     function send(type, extra) {
       const input = document.getElementById('input-folder');
@@ -653,7 +661,7 @@ internal sealed class WebInstallerForm : Form
     function handleNext() {
       if (activeStep === 1) return goToStep(2);
       if (activeStep === 2 && !isVerified) return showToast('Aviso', 'Inicie a verificacao de arquivos primeiro.', 'fa-solid fa-circle-exclamation text-pokeYellow');
-      if (activeStep === 2) return goToStep(3);
+      if (activeStep === 2) { goToStep(3); return startInstall(false); }
       if (activeStep === 3 && isInstalling) return showToast('Processando', 'Aguarde a instalacao terminar.', 'fa-solid fa-cloud-arrow-down text-pokeYellow');
       if (activeStep === 3) return goToStep(4);
       send('close');
@@ -688,7 +696,6 @@ internal sealed class WebInstallerForm : Form
       back.disabled = step === 1 || isInstalling;
       updateNextButtonState(false);
       next.innerHTML = step === 4 ? '<span>FECHAR</span> <i class="fa-solid fa-check text-[9px]"></i>' : '<span>AVANCAR</span> <i class="fa-solid fa-chevron-right text-[9px]"></i>';
-      if (step === 3 && !isInstalling) startInstall();
     }
     function updateStepNodes(step) {
       document.getElementById('steps-progress-bar').style.width = `${[0,0,33,66,100][step]}%`;
@@ -702,6 +709,7 @@ internal sealed class WebInstallerForm : Form
     function startVerify() {
       playBeep(400,100); isVerified = false; updateNextButtonState(false); logCount = 0; document.getElementById('terminal-logs').innerHTML = '';
       const btn = document.getElementById('btn-start-verify'); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> ESCANEANDO...'; btn.classList.add('text-slate-500');
+      const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = true; repairBtn.classList.add('opacity-50','cursor-not-allowed'); repairBtn.classList.remove('text-white','border-pokeRed');
       clearTimeout(verifyWatchdog);
       verifyWatchdog = setTimeout(() => {
         showToast('Compatibilidade', 'A interface moderna nao respondeu. Abrindo modo de compatibilidade...', 'fa-solid fa-screwdriver-wrench text-pokeYellow');
@@ -709,14 +717,20 @@ internal sealed class WebInstallerForm : Form
       }, 8000);
       send('verify');
     }
-    function startInstall() {
-      isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = 'Preparando sincronizacao real do modpack...';
+    function startRepair() {
+      if (!isVerified) return showToast('Aviso', 'Verifique a instancia antes de iniciar um reparo limpo.', 'fa-solid fa-circle-exclamation text-pokeYellow');
+      goToStep(3);
+      startInstall(true);
+    }
+    function startInstall(forceRepair) {
+      repairMode = !!forceRepair;
+      isInstalling = true; updateNextButtonState(false); setProgress(0); setStage('manifest'); document.getElementById('btn-back').disabled = true; document.getElementById('dl-current-file').innerText = repairMode ? 'Preparando reparo limpo do modpack...' : 'Preparando sincronizacao real do modpack...';
       clearTimeout(installWatchdog);
       installWatchdog = setTimeout(() => {
         showToast('Compatibilidade', 'A interface moderna travou em 0%. Abrindo modo de compatibilidade...', 'fa-solid fa-screwdriver-wrench text-pokeYellow');
         send('openCompatibility');
       }, 8000);
-      send('install');
+      send(repairMode ? 'repair' : 'install');
     }
     let currentProgress = 0, currentStage = 'manifest';
     function setProgress(percent) {
@@ -758,19 +772,20 @@ internal sealed class WebInstallerForm : Form
       if (msg.type === 'init') { setFolderValue(msg.folder); payloadMb = msg.payloadMb || payloadMb; return; }
       if (msg.type === 'folder') { setFolderValue(msg.folder); const count = Number(msg.detectedCount || 0); showToast('Sucesso', count > 1 ? `${count} instancias encontradas. A instancia PokeDOG mais provavel foi selecionada.` : 'Instancia do Minecraft selecionada.', 'fa-solid fa-circle-check text-emerald-500'); return; }
       if (msg.type === 'verifyStarted') { clearTimeout(verifyWatchdog); appendLog('Verificacao real iniciada.', 'text-slate-300'); return; }
-      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); appendLog('Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = 'Baixando manifesto e preparando dependencias...'; return; }
+      if (msg.type === 'installStarted') { clearTimeout(installWatchdog); repairMode = !!msg.forceRepair; appendLog(repairMode ? 'Reparo limpo iniciado.' : 'Instalacao real iniciada.', 'text-slate-300'); setStage('manifest'); document.getElementById('dl-current-file').innerText = repairMode ? 'Baixando payload e preparando reinstalacao limpa...' : 'Baixando manifesto e preparando dependencias...'; return; }
       if (msg.type === 'log') { clearTimeout(installWatchdog); appendLog(msg.line || '', /DELTA|BAIXAR|ATUALIZAR|REMOVER|Nova versao|DOWNLOAD/.test(msg.line || '') ? 'text-pokeYellow font-semibold' : 'text-slate-400'); updateInstallStatus(msg.line || ''); return; }
       if (msg.type === 'progress') { clearTimeout(installWatchdog); setProgress(msg.percent); return; }
-      if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); appendLog('Verificacao concluida. Clique em Avancar.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
+      if (msg.type === 'verified') { clearTimeout(verifyWatchdog); isVerified = true; updateNextButtonState(true); const btn = document.getElementById('btn-start-verify'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-pokeYellow"></i> VERIFICAR NOVAMENTE'; btn.classList.remove('text-slate-500'); const repairBtn = document.getElementById('btn-start-repair'); repairBtn.disabled = false; repairBtn.classList.remove('opacity-50','cursor-not-allowed'); repairBtn.classList.add('text-white','border-pokeRed'); appendLog('Verificacao concluida. Clique em Avancar ou use Reparo Limpo.', 'text-emerald-400 font-bold'); showToast('Verificado!', 'Pronto para sincronizar ou reparar o modpack.', 'fa-solid fa-circle-check text-emerald-500'); playSuccessChime(); return; }
       if (msg.type === 'installed') {
         clearTimeout(installWatchdog);
         isInstalling = false;
         setProgress(100);
         const installerUpdated = !!msg.installerUpdated;
+        repairMode = !!msg.forceRepair;
         document.getElementById('dl-current-file').innerText = installerUpdated ? 'Instalador atualizado. Reabra para concluir.' : 'Instalacao finalizada.';
         document.getElementById('done-message').innerText = installerUpdated
           ? 'O PokeDOG-Modpack-Installer foi atualizado antes de continuar a instalacao do modpack.'
-          : 'O modpack PokeDOG foi instalado e atualizado no seu diretorio de jogo.';
+          : (repairMode ? 'O modpack PokeDOG foi reparado com reinstalacao limpa na instancia selecionada.' : 'O modpack PokeDOG foi instalado e atualizado no seu diretorio de jogo.');
         document.getElementById('installer-update-alert').classList.toggle('hidden', !installerUpdated);
         if (installerUpdated) {
           showToast('Instalador atualizado!', 'Feche e abra novamente para concluir a instalacao.', 'fa-solid fa-rotate text-pokeYellow');
@@ -808,6 +823,7 @@ internal sealed class InstallerForm : Form
     private readonly TextBox _logBox = new();
     private readonly ProgressBar _progressBar = new();
     private readonly Button _installButton = new();
+    private readonly Button _repairButton = new();
     private readonly Button _checkButton = new();
     private readonly Button _targetButton = new();
     private readonly Button _targetAutoButton = new();
@@ -963,24 +979,27 @@ internal sealed class InstallerForm : Form
         base.Dispose(disposing);
     }
 
-    private async Task RunInstallAsync(bool dryRun)
+    private async Task RunInstallAsync(bool dryRun, bool forceRepair = false)
     {
         SetBusy(true);
         _progressBar.Value = 0;
         _logBox.Clear();
         SetStepState(2);
         SetStageText(
-            dryRun ? "Analisando ficheiros" : "Sincronizando modpack",
+            dryRun ? "Analisando ficheiros" : forceRepair ? "Reparo limpo do modpack" : "Sincronizando modpack",
             dryRun
                 ? "Conferindo manifesto, atualizador e inventario antes de alterar a instancia."
-                : "Baixando e aplicando somente o que faltar ou estiver desatualizado.");
+                : forceRepair
+                    ? "Reinstalando o Cobbleverse do zero com limpeza de mods, resourcepacks e shaderpacks."
+                    : "Baixando e aplicando somente o que faltar ou estiver desatualizado.");
         try
         {
             var options = new InstallerOptions(
                 _manifestBox.Text.Trim(),
                 _targetBox.Text.Trim(),
                 dryRun,
-                _payloadBox.Text.Trim());
+                _payloadBox.Text.Trim(),
+                forceRepair);
             InstallerUserSettings.SaveLastTargetRoot(options.TargetRoot);
             var installerUpdated = false;
             var log = new FormProgressLog(line =>
@@ -997,13 +1016,15 @@ internal sealed class InstallerForm : Form
                 UpdateProgress(value);
             });
             await InstallerEngine.RunAsync(options, log, _disposeToken.Token);
-            AppendLog(dryRun ? "Verificacao concluida." : "Instalacao/atualizacao concluida.");
+            AppendLog(dryRun ? "Verificacao concluida." : forceRepair ? "Reparo limpo concluido." : "Instalacao/atualizacao concluida.");
             SetStepState(4);
             SetStageText(
-                dryRun ? "Verificacao concluida" : "Instalacao concluida",
+                dryRun ? "Verificacao concluida" : forceRepair ? "Reparo concluido" : "Instalacao concluida",
                 dryRun
                     ? "A instancia escolhida foi validada. Se precisar, siga para instalar."
-                    : "Mods, resourcepacks, shaderpacks e guard foram sincronizados na pasta selecionada.");
+                    : forceRepair
+                        ? "Mods, resourcepacks, shaderpacks e guard foram reinstalados com limpeza na pasta selecionada."
+                        : "Mods, resourcepacks, shaderpacks e guard foram sincronizados na pasta selecionada.");
             if (installerUpdated)
             {
                 MessageBox.Show(this,
@@ -1028,6 +1049,7 @@ internal sealed class InstallerForm : Form
     private void SetBusy(bool busy)
     {
         _installButton.Enabled = !busy;
+        _repairButton.Enabled = !busy;
         _checkButton.Enabled = !busy;
         _targetButton.Enabled = !busy;
         _targetAutoButton.Enabled = !busy;
@@ -1340,14 +1362,16 @@ internal sealed class InstallerForm : Form
         var footer = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 4,
+            ColumnCount = 6,
             RowCount = 1,
             BackColor = Color.Transparent
         };
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200));
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 14));
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 12));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 12));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
 
         var note = new Label
         {
@@ -1366,10 +1390,18 @@ internal sealed class InstallerForm : Form
         var spacer = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
         footer.Controls.Add(spacer, 2, 0);
 
+        ConfigureActionButton(_repairButton, "Reparar Limpo", Color.FromArgb(181, 40, 40), Color.White);
+        _repairButton.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+        _repairButton.Click += async (_, _) => await RunInstallAsync(dryRun: false, forceRepair: true);
+        footer.Controls.Add(_repairButton, 3, 0);
+
+        var spacer2 = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+        footer.Controls.Add(spacer2, 4, 0);
+
         ConfigureActionButton(_installButton, "Instalar / Atualizar", Accent, Color.Black);
         _installButton.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
         _installButton.Click += async (_, _) => await RunInstallAsync(dryRun: false);
-        footer.Controls.Add(_installButton, 3, 0);
+        footer.Controls.Add(_installButton, 5, 0);
         return footer;
     }
 
@@ -1871,7 +1903,11 @@ internal static class InstallerEngine
         log.Write($"PokeDOG Modpack Installer {thisVersion}");
         log.Write($"Destino: {targetRoot}");
         log.Write($"Pack: {manifest.PackVersion} | Guard: {manifest.GuardVersion}");
-        log.Write(options.DryRun ? "Modo verificacao: nada sera alterado." : "Modo atualizacao: backups serao criados antes de substituir arquivos.");
+        log.Write(options.DryRun
+            ? "Modo verificacao: nada sera alterado."
+            : options.ForceRepair
+                ? "Modo reparo limpo: backups serao criados, mods/resourcepacks/shaderpacks gerenciados serao apagados e o payload sera reinstalado."
+                : "Modo atualizacao: backups serao criados antes de substituir arquivos.");
 
         if (!options.DryRun)
         {
@@ -1884,12 +1920,12 @@ internal static class InstallerEngine
         }
 
         var installState = await LoadInstalledStateAsync(targetRoot, cancellationToken);
-        var payloadPath = await ResolvePayloadAsync(options.PayloadZip, manifest, installState, targetRoot, http, options.DryRun, log, cancellationToken);
+        var payloadPath = await ResolvePayloadAsync(options.PayloadZip, manifest, installState, targetRoot, http, options.DryRun, options.ForceRepair, log, cancellationToken);
         PayloadApplyResult? payloadResult = null;
         if (!string.IsNullOrWhiteSpace(payloadPath))
         {
             payloadResult = await ExtractPayloadAsync(payloadPath, targetRoot, backupRoot, manifest.Payload, options.DryRun, log, cancellationToken);
-            installState = MarkPayloadInstalled(installState, manifest);
+            installState = MarkPayloadInstalled(installState, manifest, payloadResult);
         }
         else
         {
@@ -1910,14 +1946,13 @@ internal static class InstallerEngine
         }
         else if (payloadResult == null && (manifest.Payload?.RemoveMissing ?? false))
         {
-            var cleanupPayload = await FindPayloadForCleanupAsync(options.PayloadZip, manifest, targetRoot, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(cleanupPayload))
+            var stateInventory = BuildPayloadInventoryFromState(installState, manifest.Payload);
+            if (stateInventory != null)
             {
-                var inventory = await ReadPayloadInventoryAsync(cleanupPayload, manifest.Payload, log, cancellationToken);
                 await RemoveMissingManagedFilesAsync(
-                    inventory.ManagedFiles,
-                    inventory.ManagedRoots,
-                    GetManifestManagedRetainedFiles(manifest, inventory.ManagedRoots),
+                    stateInventory.ManagedFiles,
+                    stateInventory.ManagedRoots,
+                    GetManifestManagedRetainedFiles(manifest, stateInventory.ManagedRoots),
                     targetRoot,
                     backupRoot,
                     options.DryRun,
@@ -1926,7 +1961,25 @@ internal static class InstallerEngine
             }
             else
             {
-                log.Write("Limpeza: payload em cache/local nao encontrado; limpeza de arquivos extras sera feita na proxima reparacao completa.");
+                var cleanupPayload = await FindPayloadForCleanupAsync(options.PayloadZip, manifest, targetRoot, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(cleanupPayload))
+                {
+                    var inventory = await ReadPayloadInventoryAsync(cleanupPayload, manifest.Payload, log, cancellationToken);
+                    installState = MarkPayloadInstalled(installState, manifest, inventory);
+                    await RemoveMissingManagedFilesAsync(
+                        inventory.ManagedFiles,
+                        inventory.ManagedRoots,
+                        GetManifestManagedRetainedFiles(manifest, inventory.ManagedRoots),
+                        targetRoot,
+                        backupRoot,
+                        options.DryRun,
+                        log,
+                        cancellationToken);
+                }
+                else
+                {
+                    log.Write("Limpeza: payload em cache/local nao encontrado; limpeza de arquivos extras sera feita na proxima reparacao completa.");
+                }
             }
         }
 
@@ -1939,20 +1992,35 @@ internal static class InstallerEngine
         log.ReportProgress(100);
     }
 
-    private static async Task<string?> ResolvePayloadAsync(string localPayload, PokeDogManifest manifest, InstalledState? installState, string targetRoot, HttpClient http, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<string?> ResolvePayloadAsync(string localPayload, PokeDogManifest manifest, InstalledState? installState, string targetRoot, HttpClient http, bool dryRun, bool forceRepair, IInstallerLog log, CancellationToken cancellationToken)
     {
         var payload = manifest.Payload;
-        if (IsPayloadInstalled(manifest, installState))
+        if (forceRepair)
         {
-            if (!HasManagedContentInstalled(targetRoot, payload))
+            log.Write("Reparo limpo solicitado. O Cobbleverse payload sera reaplicado mesmo que a instancia ja esteja atualizada.");
+        }
+        else if (IsPayloadInstalled(manifest, installState))
+        {
+            if (HasPayloadInventory(installState))
+            {
+                log.Write("Estado salvo do payload encontrado. Validando inventario local do Cobbleverse...");
+                log.ReportProgress(5);
+                if (await LooksLikePayloadInstalledFromStateAsync(installState!, targetRoot, log, cancellationToken, 5, 45))
+                {
+                    log.Write($"Cobbleverse base confirmada pelo estado salvo: {payload?.Version}");
+                    log.ReportProgress(45);
+                    return null;
+                }
+
+                log.Write("Estado salvo do payload divergente. O instalador vai procurar ou baixar o ZIP completo para reparar a instancia.");
+            }
+            else if (!HasManagedContentInstalled(targetRoot, payload))
             {
                 log.Write("Estado salvo do payload encontrado, mas a instancia nao contem o Cobbleverse base. O ZIP sera baixado novamente.");
             }
             else
             {
-                log.Write($"Cobbleverse base ja instalada: {payload?.Version}");
-                log.ReportProgress(45);
-                return null;
+                log.Write("Estado salvo do payload encontrado, mas sem inventario detalhado. O instalador vai confirmar o Cobbleverse pelo ZIP local/cache ou baixar novamente se necessario.");
             }
         }
 
@@ -1974,7 +2042,8 @@ internal static class InstallerEngine
                 var localHash = await Sha256FileAsync(payloadCandidate, cancellationToken);
                 if (localHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (await LooksLikePayloadAlreadyInstalledAsync(payloadCandidate, manifest, targetRoot, log, cancellationToken))
+                    log.Write($"Validando inventario do payload local: {payloadCandidate}");
+                    if (await LooksLikePayloadAlreadyInstalledAsync(payloadCandidate, manifest, targetRoot, log, cancellationToken, 5, 45))
                     {
                         log.Write($"Cobbleverse base confirmada por inventario local: {payload?.Version}");
                         log.ReportProgress(45);
@@ -2010,7 +2079,8 @@ internal static class InstallerEngine
             var cachedHash = await Sha256FileAsync(cachedPayload, cancellationToken);
             if (cachedHash.Equals(payload.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                if (await LooksLikePayloadAlreadyInstalledAsync(cachedPayload, manifest, targetRoot, log, cancellationToken))
+                log.Write($"Validando inventario do payload em cache: {cachedPayload}");
+                if (await LooksLikePayloadAlreadyInstalledAsync(cachedPayload, manifest, targetRoot, log, cancellationToken, 5, 45))
                 {
                     log.Write($"Cobbleverse base confirmada por cache local: {payload?.Version}");
                     log.ReportProgress(45);
@@ -2300,6 +2370,7 @@ del /f /q "%~f0" >nul 2>nul
         var files = archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)).ToList();
         var managedRoots = NormalizeManagedRoots(payload?.ManagedRoots);
         var managedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var managedFileStates = new List<PayloadFileState>();
         var done = 0;
         var plannedUpdates = 0;
         var preservedUserFiles = 0;
@@ -2311,9 +2382,13 @@ del /f /q "%~f0" >nul 2>nul
         {
             cancellationToken.ThrowIfCancellationRequested();
             var relativePath = NormalizeRelativePath(entry.FullName);
-            if (IsUnderManagedRoots(relativePath, managedRoots))
+            var managedEntry = IsUnderManagedRoots(relativePath, managedRoots);
+            string? expectedHash = null;
+            if (managedEntry)
             {
                 managedFiles.Add(NormalizeKey(relativePath));
+                expectedHash = await Sha256ZipEntryAsync(entry, cancellationToken);
+                managedFileStates.Add(new PayloadFileState(relativePath, expectedHash, entry.Length));
             }
 
             var destination = Path.Combine(targetRoot, relativePath);
@@ -2325,7 +2400,12 @@ del /f /q "%~f0" >nul 2>nul
                 log.ReportProgress(45 + done * 40 / Math.Max(1, files.Count));
                 continue;
             }
-            var needsUpdate = !File.Exists(destination) || await Sha256FileAsync(destination, cancellationToken) != await Sha256ZipEntryAsync(entry, cancellationToken);
+            var needsUpdate = !File.Exists(destination);
+            if (!needsUpdate)
+            {
+                expectedHash ??= await Sha256ZipEntryAsync(entry, cancellationToken);
+                needsUpdate = await Sha256FileAsync(destination, cancellationToken) != expectedHash;
+            }
             if (!needsUpdate)
             {
                 done++;
@@ -2359,7 +2439,7 @@ del /f /q "%~f0" >nul 2>nul
             log.Write($"Dados do usuario preservados: {preservedUserFiles} arquivo(s) de configuracao/opcoes/lista de servidores.");
         }
         log.Write(dryRun ? $"Payload verificado: {plannedUpdates} arquivo(s) precisam instalar/atualizar." : $"Payload aplicado: {plannedUpdates} arquivo(s) instalados/atualizados.");
-        return new PayloadApplyResult(managedFiles, managedRoots);
+        return new PayloadApplyResult(managedFiles, managedRoots, managedFileStates);
     }
 
     private static async Task RemoveManagedRootContentsAsync(string targetRoot, string backupRoot, IReadOnlyList<string> managedRoots, IInstallerLog log, CancellationToken cancellationToken)
@@ -2418,6 +2498,7 @@ del /f /q "%~f0" >nul 2>nul
         using var archive = ZipFile.OpenRead(zipPath);
         var managedRoots = NormalizeManagedRoots(payload?.ManagedRoots);
         var managedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var managedFileStates = new List<PayloadFileState>();
         foreach (var entry in archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -2425,10 +2506,11 @@ del /f /q "%~f0" >nul 2>nul
             if (IsUnderManagedRoots(relativePath, managedRoots))
             {
                 managedFiles.Add(NormalizeKey(relativePath));
+                managedFileStates.Add(new PayloadFileState(relativePath, await Sha256ZipEntryAsync(entry, cancellationToken), entry.Length));
             }
         }
 
-        return new PayloadApplyResult(managedFiles, managedRoots);
+        return new PayloadApplyResult(managedFiles, managedRoots, managedFileStates);
     }
 
     private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, HashSet<string> retainedFiles, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
@@ -3139,10 +3221,11 @@ del /f /q "%~f0" >nul 2>nul
             "",
             "",
             Array.Empty<string>(),
+            Array.Empty<PayloadFileState>(),
             DateTimeOffset.UtcNow);
     }
 
-    private static InstalledState MarkPayloadInstalled(InstalledState? state, PokeDogManifest manifest)
+    private static InstalledState MarkPayloadInstalled(InstalledState? state, PokeDogManifest manifest, PayloadApplyResult? payloadResult)
     {
         var current = state ?? CreateInstalledState(manifest);
         return current with
@@ -3150,6 +3233,7 @@ del /f /q "%~f0" >nul 2>nul
             PackVersion = manifest.PackVersion,
             PayloadVersion = manifest.Payload?.Version ?? "",
             PayloadSha256 = manifest.Payload?.Sha256 ?? "",
+            PayloadFiles = payloadResult?.ManagedFileStates ?? current.PayloadFiles ?? Array.Empty<PayloadFileState>(),
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
     }
@@ -3159,6 +3243,11 @@ del /f /q "%~f0" >nul 2>nul
         return manifest.Payload is { } payload && state != null &&
             string.Equals(payload.Version, state.PayloadVersion, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(payload.Sha256, state.PayloadSha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasPayloadInventory(InstalledState? state)
+    {
+        return state?.PayloadFiles?.Count > 0;
     }
 
     private static bool HasManagedContentInstalled(string targetRoot, PayloadPackage? payload)
@@ -3189,7 +3278,7 @@ del /f /q "%~f0" >nul 2>nul
         return false;
     }
 
-    private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(string payloadPath, PokeDogManifest manifest, string targetRoot, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<bool> LooksLikePayloadAlreadyInstalledAsync(string payloadPath, PokeDogManifest manifest, string targetRoot, IInstallerLog log, CancellationToken cancellationToken, int progressStart = 5, int progressEnd = 45)
     {
         await Task.Yield();
         if (!File.Exists(payloadPath))
@@ -3201,12 +3290,17 @@ del /f /q "%~f0" >nul 2>nul
         var managedRoots = NormalizeManagedRoots(manifest.Payload?.ManagedRoots);
         var expectedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var retainedFiles = GetManifestManagedRetainedFiles(manifest, managedRoots);
-        foreach (var entry in archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)))
+        var entries = archive.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name)).ToList();
+        var totalEntries = Math.Max(1, entries.Count);
+        var processedEntries = 0;
+        foreach (var entry in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var relativePath = NormalizeRelativePath(entry.FullName);
             if (!IsUnderManagedRoots(relativePath, managedRoots))
             {
+                processedEntries++;
+                log.ReportProgress(progressStart + processedEntries * (progressEnd - progressStart) / totalEntries);
                 continue;
             }
 
@@ -3233,6 +3327,13 @@ del /f /q "%~f0" >nul 2>nul
             {
                 log.Write($"Cobbleverse local divergente: hash diferente em {relativePath}");
                 return false;
+            }
+
+            processedEntries++;
+            log.ReportProgress(progressStart + processedEntries * (progressEnd - progressStart) / totalEntries);
+            if (processedEntries % 250 == 0 || processedEntries == totalEntries)
+            {
+                log.Write($"Cobbleverse local: {processedEntries}/{totalEntries} arquivo(s) verificados.");
             }
         }
 
@@ -3267,9 +3368,76 @@ del /f /q "%~f0" >nul 2>nul
         return expectedFiles.Count > 0;
     }
 
+    private static async Task<bool> LooksLikePayloadInstalledFromStateAsync(InstalledState state, string targetRoot, IInstallerLog log, CancellationToken cancellationToken, int progressStart = 5, int progressEnd = 45)
+    {
+        await Task.Yield();
+        var files = (state.PayloadFiles ?? Array.Empty<PayloadFileState>())
+            .Where(file => !string.IsNullOrWhiteSpace(file.Path))
+            .ToList();
+        if (files.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < files.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var file = files[i];
+            var relativePath = NormalizeRelativePath(file.Path);
+            var destination = Path.Combine(targetRoot, relativePath);
+            EnsureInsideRoot(destination, targetRoot);
+            if (!File.Exists(destination))
+            {
+                log.Write($"Cobbleverse salvo incompleto: faltando {relativePath}");
+                return false;
+            }
+
+            var info = new FileInfo(destination);
+            if (file.Size > 0 && info.Length != file.Size)
+            {
+                log.Write($"Cobbleverse salvo divergente: tamanho diferente em {relativePath}");
+                return false;
+            }
+
+            var installedHash = await Sha256FileAsync(destination, cancellationToken);
+            if (!installedHash.Equals(file.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                log.Write($"Cobbleverse salvo divergente: hash diferente em {relativePath}");
+                return false;
+            }
+
+            var processed = i + 1;
+            log.ReportProgress(progressStart + processed * (progressEnd - progressStart) / Math.Max(1, files.Count));
+            if (processed % 250 == 0 || processed == files.Count)
+            {
+                log.Write($"Cobbleverse salvo: {processed}/{files.Count} arquivo(s) verificados.");
+            }
+        }
+
+        return true;
+    }
+
     private static string GetCachedPayloadPath(PayloadPackage? payload, string targetRoot)
     {
         return Path.Combine(AppContext.BaseDirectory, "cobbleverse_payload.zip");
+    }
+
+    private static PayloadApplyResult? BuildPayloadInventoryFromState(InstalledState? state, PayloadPackage? payload)
+    {
+        if (!HasPayloadInventory(state))
+        {
+            return null;
+        }
+
+        var managedFiles = new HashSet<string>(
+            (state!.PayloadFiles ?? Array.Empty<PayloadFileState>())
+                .Select(file => NormalizeKey(NormalizeRelativePath(file.Path))),
+            StringComparer.OrdinalIgnoreCase);
+
+        return new PayloadApplyResult(
+            managedFiles,
+            NormalizeManagedRoots(payload?.ManagedRoots),
+            state.PayloadFiles ?? Array.Empty<PayloadFileState>());
     }
 
     private static HashSet<string> GetManifestManagedRetainedFiles(PokeDogManifest manifest, IReadOnlyList<string> managedRoots)
@@ -3410,7 +3578,7 @@ internal sealed class WebProgressLog(Action<string> write, Action<int> progress)
     public void ReportProgress(int percent) => progress(percent);
 }
 
-internal sealed record InstallerOptions(string Manifest, string TargetRoot, bool DryRun, string PayloadZip)
+internal sealed record InstallerOptions(string Manifest, string TargetRoot, bool DryRun, string PayloadZip, bool ForceRepair = false)
 {
     public static InstallerOptions Parse(string[] args)
     {
@@ -3418,6 +3586,7 @@ internal sealed record InstallerOptions(string Manifest, string TargetRoot, bool
         var target = Directory.GetCurrentDirectory();
         var payload = InstallerPaths.FindDefaultPayload();
         var dryRun = false;
+        var forceRepair = false;
         for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
@@ -3434,9 +3603,12 @@ internal sealed record InstallerOptions(string Manifest, string TargetRoot, bool
                 case "--dry-run":
                     dryRun = true;
                     break;
+                case "--force-repair":
+                    forceRepair = true;
+                    break;
             }
         }
-        return new InstallerOptions(manifest, target, dryRun, payload);
+        return new InstallerOptions(manifest, target, dryRun, payload, forceRepair);
     }
 }
 
@@ -3463,7 +3635,8 @@ internal sealed record PayloadPackage(
 
 internal sealed record PayloadApplyResult(
     HashSet<string> ManagedFiles,
-    IReadOnlyList<string> ManagedRoots
+    IReadOnlyList<string> ManagedRoots,
+    IReadOnlyList<PayloadFileState> ManagedFileStates
 );
 
 internal sealed record UpdatePackage(
@@ -3480,7 +3653,14 @@ internal sealed record InstalledState(
     string PayloadVersion,
     string PayloadSha256,
     IReadOnlyList<string>? AppliedPackages,
+    IReadOnlyList<PayloadFileState>? PayloadFiles,
     DateTimeOffset UpdatedAtUtc
+);
+
+internal sealed record PayloadFileState(
+    string Path,
+    string Sha256,
+    long Size
 );
 
 internal sealed record ManifestFile(
