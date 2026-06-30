@@ -2313,6 +2313,7 @@ internal static class LauncherProfileSynchronizer
             string? matchingProfileName = null;
             string? currentProfileName = null;
             string? currentProfileGameDir = null;
+            JsonObject? currentProfileObject = null;
 
             foreach (var entry in profiles)
             {
@@ -2336,16 +2337,48 @@ internal static class LauncherProfileSynchronizer
                 {
                     currentProfileName = profileName;
                     currentProfileGameDir = resolvedGameDir;
+                    currentProfileObject = profile;
                 }
             }
 
             if (matchingProfileId is null)
             {
-                if (!string.IsNullOrWhiteSpace(currentProfileGameDir) &&
-                    !string.Equals(NormalizePath(currentProfileGameDir), normalizedTarget, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(selectedProfileId) || currentProfileObject is null)
                 {
-                    log.Write($"SKLauncher: a instancia instalada e '{normalizedTarget}', mas o perfil selecionado ainda aponta para '{currentProfileGameDir}'. Abra no launcher o perfil dessa mesma pasta antes de entrar.");
+                    if (!string.IsNullOrWhiteSpace(currentProfileGameDir) &&
+                        !string.Equals(NormalizePath(currentProfileGameDir), normalizedTarget, StringComparison.OrdinalIgnoreCase))
+                    {
+                        log.Write($"SKLauncher: a instancia instalada e '{normalizedTarget}', mas o perfil selecionado ainda aponta para '{currentProfileGameDir}'. Abra no launcher o perfil dessa mesma pasta antes de entrar.");
+                    }
+                    return;
                 }
+
+                var currentSelectedLabel = currentProfileName ?? selectedProfileId;
+                var currentSelectedPath = currentProfileGameDir ?? MinecraftRoot;
+                if (string.Equals(NormalizePath(currentSelectedPath), normalizedTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    log.Write($"SKLauncher: perfil selecionado '{currentSelectedLabel}' ja aponta para a instancia escolhida.");
+                    return;
+                }
+
+                if (dryRun)
+                {
+                    log.Write($"SKLauncher: perfil selecionado atual '{currentSelectedLabel}' aponta para '{currentSelectedPath}', sem perfil dedicado para '{normalizedTarget}'. DRY SYNC: o installer retargetaria esse perfil para a instancia escolhida pelo usuario.");
+                    return;
+                }
+
+                Directory.CreateDirectory(LauncherBackupsPath);
+                var selectedProfileBackupName = $"launcher_profiles.json.bak.{DateTime.Now:yyyyMMdd_HHmmss}";
+                File.Copy(LauncherProfilesPath, Path.Combine(LauncherBackupsPath, selectedProfileBackupName), overwrite: true);
+
+                currentProfileObject["gameDir"] = normalizedTarget;
+                File.WriteAllText(
+                    LauncherProfilesPath,
+                    root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                    Encoding.UTF8);
+
+                log.Write($"SKLauncher: perfil selecionado '{currentSelectedLabel}' foi ajustado para usar '{normalizedTarget}'.");
+                log.Write("SKLauncher: isso impede abrir a raiz .minecraft sem o usuario escolher essa pasta.");
                 return;
             }
 
@@ -4313,6 +4346,7 @@ internal sealed record InstallerOptions(string Manifest, string TargetRoot, bool
                 case "--manifest" when i + 1 < args.Length:
                     manifest = args[++i];
                     break;
+                case "--target-root" when i + 1 < args.Length:
                 case "--target" when i + 1 < args.Length:
                     target = args[++i];
                     break;
