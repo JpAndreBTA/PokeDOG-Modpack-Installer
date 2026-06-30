@@ -5,8 +5,8 @@
     "displayVersion": "v0.1.2",
     "version": "0.1.2",
     "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.2/PokeDOG-Modpack-Installer.exe",
-    "sha256": "dc14171ff83d3781bc639ceab0acca636f81e97556a1d88437a5b9eae03d7a12",
-    "size": 86579000
+    "sha256": "eab43facb3fd5eae3377aef0600a538af46a7566d4ca727171e94315c4e4fa6d",
+    "size": 86582072
   },
   "payload": {
     "version": "pokedog-v2-20260628-no-authme",
