@@ -57,6 +57,20 @@
       "policy": "required"
     },
     {
+      "path": "mods/Cobblemon-fabric-1.7.3+1.21.1.jar",
+      "sha256": "9294220de4badea0add26d38cf6e8d7f870c4897a22af6bcc63a9949209ada29",
+      "size": 135801566,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/Cobblemon-fabric-1.7.3+1.21.1.jar",
+      "policy": "required"
+    },
+    {
+      "path": "mods/cobblemon-care-package-1.0.0.jar",
+      "sha256": "fca20196dd399360383fdee5bcd67b92cc4290e429a88178ab95532789069daf",
+      "size": 35600,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/cobblemon-care-package-1.0.0.jar",
+      "policy": "required"
+    },
+    {
       "path": "mods/zfastnoise-1.0.12+1.21.jar",
       "sha256": "88cf1657916d57a49fb8d143c56d2cc91eac431731b68d1b043aa528f8915222",
       "size": 38844,
@@ -65,8 +79,8 @@
     },
     {
       "path": "mods/pokedog-client-guard-0.1.0.jar",
-      "sha256": "5394876a1743e3c809dd7f86890cd8064cd3f09e145d3d39e2c9636287bd6cc1",
-      "size": 68664,
+      "sha256": "9247329a6f0cadea3e38a102e22ce118fa93a3cb49d721f9d9b282348c54fe7d",
+      "size": 74486,
       "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
     }
