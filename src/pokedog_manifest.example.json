@@ -83,6 +83,13 @@
       "size": 74648,
       "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.8/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
+    },
+    {
+      "path": "mods/jei-1.21.1-fabric-19.27.0.346.jar",
+      "sha256": "674b087c336c57599666086906768143867945cab2eab41e1152b8f1810ffda7",
+      "size": 1571103,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.12/jei-1.21.1-fabric-19.27.0.346.jar",
+      "policy": "required"
     }
   ]
 }
