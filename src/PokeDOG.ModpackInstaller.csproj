@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>PokeDOG-Modpack-Installer</AssemblyName>
     <RootNamespace>PokeDOG.ModpackInstaller</RootNamespace>
-    <Version>0.1.2</Version>
+    <Version>0.1.4</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <SelfContained>true</SelfContained>
