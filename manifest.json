@@ -10,7 +10,7 @@
   },
   "payload": {
     "version": "pokedog-v2-20260704-java25-c2me018-zfastnoise1012",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/cobbleverse_payload.zip",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/cobbleverse_payload.zip",
     "sha256": "885975c5668536a5d45ae33f94f340a34c6c90ec704646ff72939a07c52be4ee",
     "size": 453205685,
     "mirrors": [],
