@@ -9,10 +9,10 @@
     "size": 86586680
   },
   "payload": {
-    "version": "pokedog-v2-20260704-full-clientpack-hotfix",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.7/cobbleverse_payload.zip",
-    "sha256": "2775e63f103d6e1f241a45256c2bb134d90d0f23a6e8461b1fec2d891877e40d",
-    "size": 516525159,
+    "version": "pokedog-v2-20260704-full-clientpack-clean-names",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.10/cobbleverse_payload.zip",
+    "sha256": "fc4c4e4f01e01c3858ee62a85b35837e3383746e52a6b7c98b22c1fff03392e0",
+    "size": 453131003,
     "mirrors": [],
     "managedRoots": [
       "mods",
