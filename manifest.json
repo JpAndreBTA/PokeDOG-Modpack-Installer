@@ -2,17 +2,17 @@
   "packVersion": "pokedog-v2",
   "guardVersion": "0.1.0",
   "installer": {
-    "displayVersion": "v0.1.9",
-    "version": "0.1.9",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.9/PokeDOG-Modpack-Installer.exe",
-    "sha256": "fa299439e57fbd7a7ee370d9e4365bcf3c451a464e4e2989272b47ea2ea7b965",
-    "size": 86586680
+    "displayVersion": "v0.1.11",
+    "version": "0.1.11",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.11/PokeDOG-Modpack-Installer.exe",
+    "sha256": "4fe8e1c2509f3dd271f0c5e2f753b6e67539d00da3bc4aff502b1bfc6a006a05",
+    "size": 86585146
   },
   "payload": {
-    "version": "pokedog-v2-20260704-full-clientpack-clean-names",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.10/cobbleverse_payload.zip",
-    "sha256": "fc4c4e4f01e01c3858ee62a85b35837e3383746e52a6b7c98b22c1fff03392e0",
-    "size": 453131003,
+    "version": "pokedog-v2-20260704-full-clientpack-restored-base",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.11/cobbleverse_payload.zip",
+    "sha256": "423a0e9bbf9e4ee22d86a91d4e201618ddc7d12543a609a81662219c65795e42",
+    "size": 516517715,
     "mirrors": [],
     "managedRoots": [
       "mods",

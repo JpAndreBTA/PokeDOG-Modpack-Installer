@@ -2,7 +2,7 @@
 
 ## Download para jogadores
 
-Baixe somente o arquivo **[PokeDOG-Modpack-Installer.exe](https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/PokeDOG-Modpack-Installer.exe)** ou use `mine.ayellol.com`.
+Baixe somente o arquivo **[PokeDOG-Modpack-Installer.exe](https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.11/PokeDOG-Modpack-Installer.exe)** ou use `mine.ayellol.com`.
 
 Nao use **Code > Download ZIP**: esse botao baixa o codigo-fonte (`.cs`, `.csproj` e `.json`), que pode aparecer associado ao VS Code e nao e o instalador.
 
@@ -53,3 +53,4 @@ Exemplo de pacote incremental no manifesto:
 Atualizacao do client guard:
 - O instalador instala/repara arquivos do payload local e valida arquivos gerenciados pelo manifesto.
 - O server-side `PokeDOG Client Guard` e quem exige a versao/hash correta no login. Cliente errado/desatualizado e kickado com instrucao para usar o instalador.
+

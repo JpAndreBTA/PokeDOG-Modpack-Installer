@@ -4232,12 +4232,21 @@ del /f /q "%~f0" >nul 2>nul
 
     private static string NormalizeRelativePath(string path)
     {
-        var normalized = path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar).Trim();
-        if (Path.IsPathRooted(normalized) || normalized.Split(Path.DirectorySeparatorChar).Any(part => part == ".."))
+        var normalized = path.Replace('\\', '/').Trim();
+        if (Path.IsPathRooted(normalized))
         {
             throw new InvalidOperationException($"Caminho inseguro no manifesto/payload: {path}");
         }
-        return normalized;
+
+        var parts = normalized
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length == 0 || parts.Any(part => part is "." or ".."))
+        {
+            throw new InvalidOperationException($"Caminho inseguro no manifesto/payload: {path}");
+        }
+
+        return string.Join(Path.DirectorySeparatorChar, parts);
     }
 
     private static IReadOnlyList<string> NormalizeManagedRoots(IReadOnlyList<string>? roots)
