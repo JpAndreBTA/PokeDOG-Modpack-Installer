@@ -214,7 +214,7 @@ internal sealed class WebInstallerForm : Form
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
                         version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
-                        payloadMb = 432.2,
+                        payloadMb = 494.8,
                         instances = initialInstances
                     });
                     break;
@@ -728,7 +728,7 @@ internal sealed class WebInstallerForm : Form
             <div class="flex justify-between font-silkscreen text-[10px] text-slate-400"><span>Sincronizando Modpack</span><span id="dl-percentage" class="text-pokeYellow font-bold">0%</span></div>
             <div class="w-full h-3 bg-[#07090f] border-2 border-slate-900 rounded overflow-hidden p-[1px]"><div id="dl-progress-bar" class="h-full bg-gradient-to-r from-pokeRed to-pokeYellow rounded-sm transition-all duration-100 ease-out" style="width:0%"></div></div>
             <div id="dl-current-action" class="font-terminal text-xs text-slate-300 min-h-[18px]">Aguardando inicio da sincronizacao...</div>
-            <div class="flex justify-between font-terminal text-xs text-slate-500"><span id="dl-loaded-mb">0.0 MB / 432.2 MB</span><span>Tempo Restante: <span id="dl-eta" class="text-slate-400">Calculando...</span></span></div>
+            <div class="flex justify-between font-terminal text-xs text-slate-500"><span id="dl-loaded-mb">0.0 MB / 494.8 MB</span><span>Tempo Restante: <span id="dl-eta" class="text-slate-400">Calculando...</span></span></div>
           </div>
           <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-900/60 font-terminal text-xs">
             <div class="text-left"><span class="block text-slate-500 text-[10px] font-silkscreen">Origem</span><span id="dl-speed" class="text-sm font-bold text-white">GitHub/Local</span></div>
@@ -780,7 +780,7 @@ internal sealed class WebInstallerForm : Form
 
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 432.2, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
+    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
     let detectedInstances = [];
     let customPathPinned = false;
 
@@ -2873,6 +2873,7 @@ internal static class InstallerEngine
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
                 json = await DownloadManifestTextAsync(source, http, timeoutCts.Token);
+                InstallerPaths.TryWriteManifestCache(json);
                 log.ReportProgress(8);
             }
             catch (Exception ex)
@@ -4426,7 +4427,7 @@ internal sealed record ManifestFile(
 
 internal static class InstallerPaths
 {
-    private const string RemoteManifestUrl = "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/latest/download/manifest.json";
+    private const string RemoteManifestUrl = "https://raw.githubusercontent.com/JpAndreBTA/PokeDOG-Modpack-Installer/main/manifest.json";
     private static readonly string[] LocalMirrorRoots =
     [
         Path.Combine(AppContext.BaseDirectory, "PokeDOG"),
@@ -4442,12 +4443,26 @@ internal static class InstallerPaths
     public static string FindLocalManifestFallback()
     {
         return FirstExisting(
+            GetManifestCachePath(),
             Path.Combine(AppContext.BaseDirectory, "manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "pokedog_manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG", "pokedog_manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "manifest.json"),
             Path.Combine(AppContext.BaseDirectory, "PokeDOG_Cliente", "pokedog_manifest.json"));
+    }
+
+    public static void TryWriteManifestCache(string json)
+    {
+        try
+        {
+            var path = GetManifestCachePath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, json, new UTF8Encoding(false));
+        }
+        catch
+        {
+        }
     }
 
     public static string FindDefaultPayload()
@@ -4536,6 +4551,15 @@ internal static class InstallerPaths
             }
         }
         return paths[0];
+    }
+
+    private static string GetManifestCachePath()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "PokeDOG",
+            "ModpackInstaller",
+            "manifest-cache.json");
     }
 
     private static void TryDeleteDirectory(string path)
