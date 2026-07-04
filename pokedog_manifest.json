@@ -2,17 +2,17 @@
   "packVersion": "pokedog-v2",
   "guardVersion": "0.1.0",
   "installer": {
-    "displayVersion": "v0.1.4",
-    "version": "0.1.4",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/PokeDOG-Modpack-Installer.exe",
-    "sha256": "e59dd863388d48d937f6736e717482dcaa86f648264412c5bb7e709e2a898989",
+    "displayVersion": "v0.1.5",
+    "version": "0.1.5",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/PokeDOG-Modpack-Installer.exe",
+    "sha256": "672e65b491632fb10a4f96f01d20328c46561548894a045b605fdc2a0384dfcc",
     "size": 86584632
   },
   "payload": {
-    "version": "pokedog-v2-20260628-no-authme",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.0/cobbleverse_payload.zip",
-    "sha256": "a1bc9441e25e8bfac0a3303207520242f4ab7eca4d7f0b69ac7d4c7fe1d3ef18",
-    "size": 517312831,
+    "version": "pokedog-v2-20260704-java25-c2me018-zfastnoise1012",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/cobbleverse_payload.zip",
+    "sha256": "885975c5668536a5d45ae33f94f340a34c6c90ec704646ff72939a07c52be4ee",
+    "size": 453205685,
     "mirrors": [],
     "managedRoots": [
       "mods",
@@ -35,7 +35,7 @@
     },
     {
       "version": "pokedog-v2-client-sync-20260703-c2me-zfastnoise",
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/pokedog-v2-delta-20260703-c2me-zfastnoise.zip",
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/pokedog-v2-delta-20260703-c2me-zfastnoise.zip",
       "sha256": "406cef05008f6635571f7e5f2d272cff9edb45efd7040694568f0b4f13b9534f",
       "size": 3768807,
       "files": [
@@ -50,10 +50,24 @@
   ],
   "files": [
     {
+      "path": "mods/c2me-fabric-mc1.21.1-0.4.0-alpha.0.18.jar",
+      "sha256": "a46e25f565033b441f6e9891b14880b873b9b9d4a5edf66fb7467d90c2b10196",
+      "size": 3748202,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/c2me-fabric-mc1.21.1-0.4.0-alpha.0.18.jar",
+      "policy": "required"
+    },
+    {
+      "path": "mods/zfastnoise-1.0.12+1.21.jar",
+      "sha256": "88cf1657916d57a49fb8d143c56d2cc91eac431731b68d1b043aa528f8915222",
+      "size": 38844,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/zfastnoise-1.0.12+1.21.jar",
+      "policy": "required"
+    },
+    {
       "path": "mods/pokedog-client-guard-0.1.0.jar",
       "sha256": "5394876a1743e3c809dd7f86890cd8064cd3f09e145d3d39e2c9636287bd6cc1",
       "size": 68664,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.4/pokedog-client-guard-0.1.0.jar",
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.5/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
     }
   ]

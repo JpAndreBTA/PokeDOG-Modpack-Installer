@@ -214,7 +214,7 @@ internal sealed class WebInstallerForm : Form
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
                         version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
-                        payloadMb = 494.8,
+                        payloadMb = 432.2,
                         instances = initialInstances
                     });
                     break;
@@ -728,7 +728,7 @@ internal sealed class WebInstallerForm : Form
             <div class="flex justify-between font-silkscreen text-[10px] text-slate-400"><span>Sincronizando Modpack</span><span id="dl-percentage" class="text-pokeYellow font-bold">0%</span></div>
             <div class="w-full h-3 bg-[#07090f] border-2 border-slate-900 rounded overflow-hidden p-[1px]"><div id="dl-progress-bar" class="h-full bg-gradient-to-r from-pokeRed to-pokeYellow rounded-sm transition-all duration-100 ease-out" style="width:0%"></div></div>
             <div id="dl-current-action" class="font-terminal text-xs text-slate-300 min-h-[18px]">Aguardando inicio da sincronizacao...</div>
-            <div class="flex justify-between font-terminal text-xs text-slate-500"><span id="dl-loaded-mb">0.0 MB / 494.8 MB</span><span>Tempo Restante: <span id="dl-eta" class="text-slate-400">Calculando...</span></span></div>
+            <div class="flex justify-between font-terminal text-xs text-slate-500"><span id="dl-loaded-mb">0.0 MB / 432.2 MB</span><span>Tempo Restante: <span id="dl-eta" class="text-slate-400">Calculando...</span></span></div>
           </div>
           <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-900/60 font-terminal text-xs">
             <div class="text-left"><span class="block text-slate-500 text-[10px] font-silkscreen">Origem</span><span id="dl-speed" class="text-sm font-bold text-white">GitHub/Local</span></div>
@@ -780,7 +780,7 @@ internal sealed class WebInstallerForm : Form
 
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
+    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 432.2, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
     let detectedInstances = [];
     let customPathPinned = false;
 
