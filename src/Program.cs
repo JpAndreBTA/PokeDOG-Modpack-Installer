@@ -2856,6 +2856,7 @@ internal static class InstallerEngine
         };
         request.Headers.Pragma.ParseAdd("no-cache");
         request.Headers.UserAgent.ParseAdd("PokeDOG-Modpack-Installer/0.1");
+        request.Headers.Accept.ParseAdd("application/vnd.github.raw+json");
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
@@ -4427,7 +4428,7 @@ internal sealed record ManifestFile(
 
 internal static class InstallerPaths
 {
-    private const string RemoteManifestUrl = "https://raw.githubusercontent.com/JpAndreBTA/PokeDOG-Modpack-Installer/main/manifest.json";
+    private const string RemoteManifestUrl = "https://api.github.com/repos/JpAndreBTA/PokeDOG-Modpack-Installer/contents/manifest.json?ref=main";
     private static readonly string[] LocalMirrorRoots =
     [
         Path.Combine(AppContext.BaseDirectory, "PokeDOG"),
