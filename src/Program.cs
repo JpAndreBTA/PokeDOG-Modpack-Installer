@@ -2488,12 +2488,13 @@ internal static class InstallerEngine
             return;
         }
 
+        var allowlistedEntriesByRoot = LoadGuardAllowlistedManagedEntries(targetRoot, log);
         var installState = await LoadInstalledStateAsync(targetRoot, cancellationToken);
         var payloadPath = await ResolvePayloadAsync(options.PayloadZip, manifest, installState, targetRoot, http, options.DryRun, options.ForceRepair, log, cancellationToken);
         PayloadApplyResult? payloadResult = null;
         if (!string.IsNullOrWhiteSpace(payloadPath))
         {
-            payloadResult = await ExtractPayloadAsync(payloadPath, targetRoot, backupRoot, manifest.Payload, options.DryRun, log, cancellationToken);
+            payloadResult = await ExtractPayloadAsync(payloadPath, targetRoot, backupRoot, manifest.Payload, allowlistedEntriesByRoot, options.DryRun, log, cancellationToken);
             installState = MarkPayloadInstalled(installState, manifest, payloadResult);
         }
         else
@@ -2507,6 +2508,7 @@ internal static class InstallerEngine
                 payloadResult.ManagedFiles,
                 payloadResult.ManagedRoots,
                 GetManifestManagedRetainedFiles(manifest, payloadResult.ManagedRoots),
+                allowlistedEntriesByRoot,
                 targetRoot,
                 backupRoot,
                 options.DryRun,
@@ -2522,6 +2524,7 @@ internal static class InstallerEngine
                     stateInventory.ManagedFiles,
                     stateInventory.ManagedRoots,
                     GetManifestManagedRetainedFiles(manifest, stateInventory.ManagedRoots),
+                    allowlistedEntriesByRoot,
                     targetRoot,
                     backupRoot,
                     options.DryRun,
@@ -2539,6 +2542,7 @@ internal static class InstallerEngine
                         inventory.ManagedFiles,
                         inventory.ManagedRoots,
                         GetManifestManagedRetainedFiles(manifest, inventory.ManagedRoots),
+                        allowlistedEntriesByRoot,
                         targetRoot,
                         backupRoot,
                         options.DryRun,
@@ -2996,7 +3000,7 @@ del /f /q "%~f0" >nul 2>nul
         log.Write("Auto-update agendado para substituir o executavel apos fechar.");
     }
 
-    private static async Task<PayloadApplyResult> ExtractPayloadAsync(string zipPath, string targetRoot, string backupRoot, PayloadPackage? payload, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<PayloadApplyResult> ExtractPayloadAsync(string zipPath, string targetRoot, string backupRoot, PayloadPackage? payload, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         log.Write($"Payload local: {zipPath}");
         log.ReportProgress(45);
@@ -3010,7 +3014,7 @@ del /f /q "%~f0" >nul 2>nul
         var preservedUserFiles = 0;
         if (!dryRun)
         {
-            await RemoveManagedRootContentsAsync(targetRoot, backupRoot, managedRoots, log, cancellationToken);
+            await RemoveManagedRootContentsAsync(targetRoot, backupRoot, managedRoots, allowlistedEntriesByRoot, log, cancellationToken);
         }
         foreach (var entry in files)
         {
@@ -3076,7 +3080,7 @@ del /f /q "%~f0" >nul 2>nul
         return new PayloadApplyResult(managedFiles, managedRoots, managedFileStates);
     }
 
-    private static async Task RemoveManagedRootContentsAsync(string targetRoot, string backupRoot, IReadOnlyList<string> managedRoots, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task RemoveManagedRootContentsAsync(string targetRoot, string backupRoot, IReadOnlyList<string> managedRoots, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
         foreach (var root in managedRoots)
@@ -3091,9 +3095,16 @@ del /f /q "%~f0" >nul 2>nul
 
             var files = Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories).ToList();
             var deleted = 0;
+            var preserved = 0;
             foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
+                if (IsAllowlistedManagedPath(relativePath, root, allowlistedEntriesByRoot))
+                {
+                    preserved++;
+                    continue;
+                }
                 BackupFile(file, backupRoot, targetRoot);
                 File.Delete(file);
                 deleted++;
@@ -3102,6 +3113,10 @@ del /f /q "%~f0" >nul 2>nul
             if (deleted > 0)
             {
                 log.Write($"Instalacao limpa: {deleted} arquivo(s) removidos de {root} com backup.");
+            }
+            if (preserved > 0)
+            {
+                log.Write($"Allowlist respeitada: {preserved} arquivo(s) preservados em {root}.");
             }
         }
     }
@@ -3147,7 +3162,7 @@ del /f /q "%~f0" >nul 2>nul
         return new PayloadApplyResult(managedFiles, managedRoots, managedFileStates);
     }
 
-    private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, HashSet<string> retainedFiles, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, HashSet<string> retainedFiles, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
         log.Write("Limpeza: verificando arquivos removidos do modpack.");
@@ -3173,6 +3188,16 @@ del /f /q "%~f0" >nul 2>nul
             cancellationToken.ThrowIfCancellationRequested();
             var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
             var normalized = NormalizeKey(relativePath);
+            var managedRoot = managedRoots.First(root => IsUnderManagedRoots(relativePath, new[] { root }));
+            if (IsAllowlistedManagedPath(relativePath, managedRoot, allowlistedEntriesByRoot))
+            {
+                processed++;
+                if (processed % 250 == 0 || processed == candidates.Count)
+                {
+                    log.Write($"Limpeza: {processed}/{candidates.Count} arquivos verificados.");
+                }
+                continue;
+            }
             if (retainedFiles.Contains(normalized))
             {
                 processed++;
@@ -4270,6 +4295,85 @@ del /f /q "%~f0" >nul 2>nul
             return key.Equals(rootKey, StringComparison.OrdinalIgnoreCase) ||
                 key.StartsWith(rootKey + "/", StringComparison.OrdinalIgnoreCase);
         });
+    }
+
+    private static IReadOnlyDictionary<string, HashSet<string>> LoadGuardAllowlistedManagedEntries(string targetRoot, IInstallerLog log)
+    {
+        var allowlistPath = Path.Combine(targetRoot, "config", "pokedog-client-guard-allowlist.txt");
+        var result = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(allowlistPath))
+        {
+            return result;
+        }
+
+        string? currentRoot = null;
+        foreach (var rawLine in File.ReadLines(allowlistPath, Encoding.UTF8))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            if (line.StartsWith('[') && line.EndsWith(']'))
+            {
+                currentRoot = NormalizeAllowlistSectionToManagedRoot(line[1..^1]);
+                continue;
+            }
+
+            if (currentRoot is null)
+            {
+                continue;
+            }
+
+            if (!result.TryGetValue(currentRoot, out var entries))
+            {
+                entries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                result[currentRoot] = entries;
+            }
+
+            entries.Add(NormalizeKey(line));
+        }
+
+        var totalEntries = result.Values.Sum(entries => entries.Count);
+        if (totalEntries > 0)
+        {
+            log.Write($"Allowlist do guard carregada: {totalEntries} entrada(s) protegidas em {string.Join(", ", result.Keys.OrderBy(key => key))}.");
+        }
+
+        return result;
+    }
+
+    private static string? NormalizeAllowlistSectionToManagedRoot(string section)
+    {
+        return NormalizeKey(section) switch
+        {
+            "mods" => "mods",
+            "resourcepacks" => "resourcepacks",
+            "shaderpacks" => "shaderpacks",
+            "downloads" => "downloads",
+            _ => null
+        };
+    }
+
+    private static bool IsAllowlistedManagedPath(string relativePath, string managedRoot, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot)
+    {
+        var rootKey = NormalizeKey(managedRoot);
+        if (!allowlistedEntriesByRoot.TryGetValue(rootKey, out var entries) || entries.Count == 0)
+        {
+            return false;
+        }
+
+        var key = NormalizeKey(relativePath);
+        if (key.Equals(rootKey, StringComparison.OrdinalIgnoreCase) || !key.StartsWith(rootKey + "/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var remainder = key[(rootKey.Length + 1)..];
+        var separatorIndex = remainder.IndexOf('/');
+        var topLevelEntry = separatorIndex >= 0 ? remainder[..separatorIndex] : remainder;
+        return entries.Contains(topLevelEntry);
     }
 
     private static string NormalizeKey(string relativePath)
