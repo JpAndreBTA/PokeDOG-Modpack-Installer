@@ -19,6 +19,11 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0].Equals("--apply-self-update", StringComparison.OrdinalIgnoreCase))
+        {
+            return RunSelfUpdateHelperAsync(args).GetAwaiter().GetResult();
+        }
+
         if (args.Any(arg => arg.Equals("--list-instances", StringComparison.OrdinalIgnoreCase)))
         {
             foreach (var instance in MinecraftInstanceLocator.FindInstances())
@@ -67,6 +72,98 @@ internal static class Program
         }
 
         return false;
+    }
+
+    private static async Task<int> RunSelfUpdateHelperAsync(string[] args)
+    {
+        static void SafeDeleteFile(string? path)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        static string? ReadOption(string[] source, string name)
+        {
+            for (var i = 0; i < source.Length - 1; i++)
+            {
+                if (source[i].Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return source[i + 1];
+                }
+            }
+
+            return null;
+        }
+
+        var currentExe = ReadOption(args, "--current");
+        var updateExe = ReadOption(args, "--update");
+        var pidText = ReadOption(args, "--pid");
+
+        if (string.IsNullOrWhiteSpace(currentExe) || string.IsNullOrWhiteSpace(updateExe) || !int.TryParse(pidText, out var pid))
+        {
+            return 1;
+        }
+
+        try
+        {
+            try
+            {
+                var original = Process.GetProcessById(pid);
+                if (!original.HasExited)
+                {
+                    await original.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(120));
+                }
+            }
+            catch
+            {
+            }
+
+            for (var attempt = 0; attempt < 120; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(currentExe))
+                    {
+                        File.SetAttributes(currentExe, FileAttributes.Normal);
+                    }
+
+                    File.Copy(updateExe, currentExe, true);
+                    SafeDeleteFile(updateExe);
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = currentExe,
+                        UseShellExecute = true
+                    });
+                    return 0;
+                }
+                catch
+                {
+                    await Task.Delay(1000);
+                }
+            }
+        }
+        finally
+        {
+            var selfPath = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(selfPath))
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000);
+                    SafeDeleteFile(selfPath);
+                });
+            }
+        }
+
+        return 1;
     }
 
     private static async Task<int> RunCliAsync(string[] args)
@@ -2973,30 +3070,25 @@ internal static class InstallerEngine
 
     private static void ScheduleSelfReplace(string currentExe, string updateExe, IInstallerLog log)
     {
-        var script = Path.Combine(Path.GetTempPath(), "pokedog-installer-self-update-" + Guid.NewGuid().ToString("N") + ".cmd");
-        var content = $"""
-@echo off
-set "POKEDOG_UPDATE={updateExe}"
-set "POKEDOG_CURRENT={currentExe}"
-for /l %%i in (1,1,120) do (
-  copy /y "%POKEDOG_UPDATE%" "%POKEDOG_CURRENT%" >nul 2>nul && goto copied
-  timeout /t 1 /nobreak >nul
-)
-exit /b 1
-:copied
-del /f /q "{updateExe}" >nul 2>nul
-start "" "{currentExe}"
-del /f /q "%~f0" >nul 2>nul
-""";
-        File.WriteAllText(script, content, Encoding.ASCII);
-        Process.Start(new ProcessStartInfo
+        var helperExe = Path.Combine(Path.GetTempPath(), "pokedog-installer-self-update-" + Guid.NewGuid().ToString("N") + ".exe");
+        File.Copy(currentExe, helperExe, true);
+
+        var startInfo = new ProcessStartInfo
         {
-            FileName = "cmd.exe",
-            Arguments = "/c \"" + script + "\"",
+            FileName = helperExe,
             CreateNoWindow = true,
             UseShellExecute = false,
             WindowStyle = ProcessWindowStyle.Hidden
-        });
+        };
+        startInfo.ArgumentList.Add("--apply-self-update");
+        startInfo.ArgumentList.Add("--current");
+        startInfo.ArgumentList.Add(currentExe);
+        startInfo.ArgumentList.Add("--update");
+        startInfo.ArgumentList.Add(updateExe);
+        startInfo.ArgumentList.Add("--pid");
+        startInfo.ArgumentList.Add(Environment.ProcessId.ToString());
+
+        Process.Start(startInfo);
         log.Write("Auto-update agendado para substituir o executavel apos fechar.");
     }
 
