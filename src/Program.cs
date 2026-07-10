@@ -311,7 +311,7 @@ internal sealed class WebInstallerForm : Form
                         type = "init",
                         folder = InstallerUserSettings.GetPreferredMinecraftFolder(),
                         version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
-                        payloadMb = 494.8,
+                        payloadMb = 495.9,
                         instances = initialInstances
                     });
                     break;
@@ -877,7 +877,7 @@ internal sealed class WebInstallerForm : Form
 
   <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 494.8, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
+    let activeStep = 1, isVerified = false, isInstalling = false, repairMode = false, verificationUpToDate = false, logCount = 0, payloadMb = 495.9, toastTimeout = null, installWatchdog = null, verifyWatchdog = null;
     let detectedInstances = [];
     let customPathPinned = false;
 
