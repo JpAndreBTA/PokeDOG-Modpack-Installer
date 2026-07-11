@@ -2,17 +2,17 @@
   "packVersion": "pokedog-v2",
   "guardVersion": "0.1.0",
   "installer": {
-    "displayVersion": "v0.1.21",
-    "version": "0.1.21",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.21/PokeDOG-Modpack-Installer.exe",
-    "sha256": "ac3a5c8e2d841a9394247f61e0cffd563dfec7ab3bd05621063cf498edc8586c",
-    "size": 86591802
+    "displayVersion": "v0.1.22",
+    "version": "0.1.22",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.22/PokeDOG-Modpack-Installer.exe",
+    "sha256": "c163c6302381ba64356cf560d032befc01f39942521865f7203f0941ca85a454",
+    "size": 86589754
   },
   "payload": {
-    "version": "pokedog-v2-20260710-legendarymonuments-neruina",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.21/cobbleverse_payload.zip",
-    "sha256": "0b0c52ea55944ed008ca9a55a0c3df84c6f73825f5cce11670087f2f54895a78",
-    "size": 542043384,
+    "version": "pokedog-v2-20260711-pokedog2-base-legendarymonuments-neruina",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.22/cobbleverse_payload.zip",
+    "sha256": "170ca76d18c2e05c41ff9590a8ba55fe284d80ad3ee5f177b2e2eedbee6bdf36",
+    "size": 545611657,
     "mirrors": [],
     "managedRoots": [
       "mods",
@@ -21,35 +21,20 @@
     ],
     "removeMissing": true
   },
-  "updatePackages": [
-    {
-      "version": "v0.1.20-cleanup-legacy-client-jars",
-      "removes": [
-        "mods/c2me-fabric-mc1.21.1-0.3.0 alpha.0.362.jar",
-        "mods/c2me-fabric-mc1.21.1-0.4.0-alpha.0.18.jar",
-        "mods/c2me-fabric-mc1.21.1-0.4.0-alpha.0.18.jar.disabled",
-        "mods/catchrate-display-fabric-2.8.14.jar",
-        "mods/cobblemon-additions-4.1.6.jar",
-        "mods/cobblemon-battle-extras-fabric-1.12.42.jar",
-        "mods/mega_showdown-fabric-1.7.3+1.7.3+1.21.1.jar",
-        "mods/rctapi-fabric-1.21.1-0.15.0-beta.jar",
-        "mods/rctmod-fabric-1.21.1-0.17.7-beta.jar"
-      ]
-    }
-  ],
+  "updatePackages": [],
   "files": [
     {
       "path": "mods/pokedog-client-guard-0.1.0.jar",
       "sha256": "9c235a87456c2224944371ada937d78a011c87de3f3c0a8c048b137990c18e0b",
       "size": 75951,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.21/pokedog-client-guard-0.1.0.jar",
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.22/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
     },
     {
       "path": "config/pokedog-client-guard-allowlist.txt",
-      "sha256": "670c28d7830549007885f90452d34da511402d692d4fd41202941f74e232c5c5",
+      "sha256": "77090bc5366325dea59891671f8ea43b32ccc5d1b451a1768c0f02f968f9aa90",
       "size": 8912,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.21/pokedog-client-guard-allowlist.txt",
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.22/pokedog-client-guard-allowlist.txt",
       "policy": "required"
     }
   ]
