@@ -2,17 +2,17 @@
   "packVersion": "pokedog-v2",
   "guardVersion": "0.1.0",
   "installer": {
-    "displayVersion": "v0.1.18",
-    "version": "0.1.18",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.18/PokeDOG-Modpack-Installer.exe",
-    "sha256": "99d571894da095949a9ec051d626e405469f08e283e818451fd44b53e2c86d32",
-    "size": 86587706
+    "displayVersion": "v0.1.19",
+    "version": "0.1.19",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.19/PokeDOG-Modpack-Installer.exe",
+    "sha256": "89f5726a7c57c500957c962e4e900a94155ac028fb3ee3c964e00ea96df44c8e",
+    "size": 86589754
   },
   "payload": {
-    "version": "pokedog-v2-20260710-full-clientpack-sync",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.18/cobbleverse_payload.zip",
-    "sha256": "c0084d206e05ba2c49589781d164d9404a7b725bd41fa1071c849c0ba30867a9",
-    "size": 520100833,
+    "version": "pokedog-v2-20260710-clientpack-guard-sync",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.19/cobbleverse_payload.zip",
+    "sha256": "1776cf4165ab142885e6fa93cc4f3a9be36b14ed3923936e5e0804a87648ab02",
+    "size": 521375740,
     "mirrors": [],
     "managedRoots": [
       "mods",
@@ -27,14 +27,14 @@
       "path": "mods/pokedog-client-guard-0.1.0.jar",
       "sha256": "9c235a87456c2224944371ada937d78a011c87de3f3c0a8c048b137990c18e0b",
       "size": 75951,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.18/pokedog-client-guard-0.1.0.jar",
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.19/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
     },
     {
       "path": "config/pokedog-client-guard-allowlist.txt",
-      "sha256": "da743fc92a553c88b21a952b541c17c606ec64b5f645b9416e78770f181f8ecf",
-      "size": 6059,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.18/pokedog-client-guard-allowlist.txt",
+      "sha256": "1e9f41fa208b9fbccaafab4a93b6bea4c77c4a7cba088d44601a6b57a1433b31",
+      "size": 8651,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.19/pokedog-client-guard-allowlist.txt",
       "policy": "required"
     }
   ]
