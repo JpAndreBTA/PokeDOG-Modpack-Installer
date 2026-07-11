@@ -1,0 +1,246 @@
+# Generated from the managed PokeDOG payload.
+[mods]
+accessories-fabric-1.1.0-beta.53%2B1.21.1.jar
+accessories-fabric-1.1.0-beta.53+1.21.1.jar
+accessories_compat_layer-fabric-0.1.12%2B1.21.1.jar
+accessories_compat_layer-fabric-0.1.12+1.21.1.jar
+advancementdisable-fabric-1.0.1%2B1.21.jar
+advancementdisable-fabric-1.0.1+1.21.jar
+AdvancementPlaques-1.21.1-fabric-1.6.8.jar
+architectury-13.0.8-fabric.jar
+athena-fabric-1.21-4.0.2.jar
+BadOptimizations-2.4.1-1.21.1.jar
+balm-fabric-1.21.1-21.0.56.jar
+beautify-2.0.0%2B1.21.1.jar
+beautify-2.0.0+1.21.1.jar
+betterbeds-fabric-1.4.0.jar
+BetterF1-Fabric-1.1%2B1.21.7.jar
+BetterF1-Fabric-1.1+1.21.7.jar
+BetterF3-11.0.3-Fabric-1.21.1.jar
+BetterThirdPerson-Fabric-1.21-1.9.0.jar
+biomereplacer-2.1-hippo-fabric.jar
+brb-1.10.0-rc5%2B1.21.jar
+brb-1.10.0-rc5+1.21.jar
+c2me-fabric-mc1.21.1-0.4.0-alpha.0.19.jar
+capturexp-fabric-1.7.3-1.3.0.jar
+Carved Wood-fabric-1.21.1-1.8.2.jar
+Carved%20Wood-fabric-1.21.1-1.8.2.jar
+catchindicator-fabric-1.6.2.jar
+catchrate-display-fabric-2.8.22.jar
+chipped-fabric-1.21.1-4.0.2.jar
+Chunky-Fabric-1.4.23.jar
+cloth-config-15.0.140-fabric.jar
+cobblecuisine-2.0.1-1.7-rc1.jar
+CobbleDollars-fabric-2.0.0%2BBeta-5.1%2B1.21.1.jar
+CobbleDollars-fabric-2.0.0+Beta-5.1+1.21.1.jar
+CobbleFurnies-fabric-1.0.jar
+cobblemon-additions-4.3.0.jar
+cobblemon-battle-extras-fabric-1.13.45.jar
+cobblemon-battle-positions-1.1.3.jar
+cobblemon-care-package-1.0.0.jar
+Cobblemon-fabric-1.7.3%2B1.21.1.jar
+Cobblemon-fabric-1.7.3+1.21.1.jar
+cobblemonraiddens-fabric-0.10.0%2B1.21.1.jar
+cobblemonraiddens-fabric-0.10.0+1.21.1.jar
+cobblenav-fabric-2.3.2.jar
+CobbleverseBadges-1.3.jar
+Cobbreeding-fabric-2.2.0.jar
+comforts-fabric-9.0.5%2B1.21.1.jar
+comforts-fabric-9.0.5+1.21.1.jar
+configurable-3.5.1%2B1.21.1-fabric.jar
+configurable-3.5.1+1.21.1-fabric.jar
+continuity-3.0.0%2B1.21.jar
+continuity-3.0.0+1.21.jar
+Controlling-fabric-1.21.1-19.0.5.jar
+customsplashscreen-2.2.0.jar
+Debugify-1.21.1%2B1.0.jar
+Debugify-1.21.1+1.0.jar
+defaultoptions-fabric-1.21.1-21.1.5.jar
+emberstextapi-fabric-1.21.1-2.9.4.jar
+entity_model_features_1.21-fabric-3.0.17.jar
+entity_texture_features_1.21-fabric-7.0.13.jar
+entityculling-fabric-1.10.0-mc1.21.1.jar
+EuphoriaPatcher-1.8.6-r5.7.1-fabric.jar
+fabric-api-0.116.10%2B1.21.1.jar
+fabric-api-0.116.10+1.21.1.jar
+fabric-language-kotlin-1.13.10%2Bkotlin.2.3.20.jar
+fabric-language-kotlin-1.13.10+kotlin.2.3.20.jar
+fancymenu_fabric_3.8.1_MC_1.21.1.jar
+ferritecore-7.0.3-fabric.jar
+fightorflight-fabric-0.10.7.jar
+flan-1.21.1-1.12.7-fabric.jar
+ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar
+forgivingvoid-fabric-1.21.1-21.1.6.jar
+ftb-essentials-fabric-2101.1.9.jar
+ftb-library-fabric-2101.1.32.jar
+fusion-1.2.12-fabric-mc1.21.jar
+fzzy_config-0.7.6%2B1.21.jar
+fzzy_config-0.7.6+1.21.jar
+geckolib-fabric-1.21.1-4.8.4.jar
+globalpacks-fabric-1.21.1-21.0.6.jar
+handcrafted-fabric-1.21.1-4.0.3.jar
+highlight-fabric-1.21-3.0.0.jar
+huge-structure-blocks-fabric-1.1.6.jar
+Iceberg-1.21.1-fabric-1.3.2.jar
+ImmediatelyFast-Fabric-1.6.10%2B1.21.1.jar
+ImmediatelyFast-Fabric-1.6.10+1.21.1.jar
+infinite-music-0.4.6.jar
+interactic-0.2.3%2B1.21.jar
+interactic-0.2.3+1.21.jar
+iris-fabric-1.8.8%2Bmc1.21.1.jar
+iris-fabric-1.8.8+mc1.21.1.jar
+jei-1.21.1-fabric-19.27.0.346.jar
+konkrete_fabric_1.9.9_MC_1.21.jar
+krypton-0.2.8.jar
+lenientdeath-1.2.5%2B1.21.1.jar
+lenientdeath-1.2.5+1.21.1.jar
+libjf-3.17.3.jar
+lithium-fabric-0.15.3%2Bmc1.21.1.jar
+lithium-fabric-0.15.3+mc1.21.1.jar
+lithostitched-1.7.13-fabric-21.1.jar
+Luckys-Cozyhome-Refurnished-1.1.20.jar
+LumyMon-0.6.5.jar
+LumyREI-1.1.3.jar
+mega_showdown-fabric-1.8.4%2B1.7.3%2B1.21.1.jar
+mega_showdown-fabric-1.8.4+1.7.3+1.21.1.jar
+melody_fabric_1.0.10_MC_1.21.jar
+midnightlib-1.7.5-fabric%2B1.21.1.jar
+midnightlib-1.7.5-fabric+1.21.1.jar
+moar-concrete-1.3.1.jar
+MobsBeGone-0.0.7.jar
+modernfix-fabric-5.25.1%2Bmc1.21.1.jar
+modernfix-fabric-5.25.1+mc1.21.1.jar
+modmenu-11.0.4.jar
+MoreCobblemonTweaks-fabric-1.3.3.jar
+moreculling-fabric-1.21.1-1.0.7.jar
+MouseTweaks-fabric-mc1.21-2.26.jar
+MusicNotification-fabric-mc1.21-2.1.0.jar
+neruina-3.3.2%2B1.21.1-fabric.jar
+neruina-3.3.2+1.21.1-fabric.jar
+nethermap-4.0.0-1.21.1.jar
+netherportalfix-fabric-1.21.1-21.1.3.jar
+notenoughanimations-fabric-1.12.0-mc1.21.1.jar
+notenoughcrashes-fabric-4.4.9%2B1.21.1.jar
+notenoughcrashes-fabric-4.4.9+1.21.1.jar
+Only Bottle Caps-1.3.0.jar
+Only%20Bottle%20Caps-1.3.0.jar
+owo-lib-0.12.15.4%2B1.21.jar
+owo-lib-0.12.15.4+1.21.jar
+packetfixer-3.3.1-1.20.5-1.21.X-merged.jar
+paginatedadvancements-2.5.1.jar
+particle_core-0.3.3%2B1.21.jar
+particle_core-0.3.3+1.21.jar
+particlerain-4.0.0-beta.9%2B1.21.1-fabric.jar
+particlerain-4.0.0-beta.9+1.21.1-fabric.jar
+particular-1.21.1-Fabric-1.1.2.jar
+Ping-Wheel-1.12.1-fabric-1.21.1.jar
+Platform-fabric-1.21.1-1.3.jar
+playerxp-fabric-1.0.8%2B1.21.1.jar
+playerxp-fabric-1.0.8+1.21.1.jar
+poke-clothing-1.2.2.jar
+pokeblocks-1.4.0-1.21.1.jar
+pokedog-client-guard-0.1.0.jar
+rctapi-fabric-1.21.1-0.15.2-beta.jar
+rctmod-fabric-1.21.1-0.18.1-beta.jar
+rechiseled-1.2.4-fabric-mc1.21.jar
+reeses-sodium-options-fabric-1.8.3%2Bmc1.21.4.jar
+reeses-sodium-options-fabric-1.8.3+mc1.21.4.jar
+repurposed_structures-7.5.18%2B1.21.1-fabric.jar
+repurposed_structures-7.5.18+1.21.1-fabric.jar
+resourcefullib-fabric-1.21-3.0.12.jar
+ResourcePackOverrides-v21.1.0-1.21.1-Fabric.jar
+respackopts-4.11.3.jar
+RoughlyEnoughItems-16.0.799-fabric.jar
+SafePastures-1.1.1%2B1.21.1.jar
+SafePastures-1.1.1+1.21.1.jar
+ScalableLux-0.1.0.1%2Bfabric.d0d58ab-all.jar
+ScalableLux-0.1.0.1+fabric.d0d58ab-all.jar
+Searchables-fabric-1.21.1-1.0.2.jar
+simplehats-fabric-1.21.1-0.4.0.jar
+skinrestorer-2.8.1%2B1.21-fabric.jar
+skinrestorer-2.8.1+1.21-fabric.jar
+sodium-extra-fabric-0.6.0%2Bmc1.21.1.jar
+sodium-extra-fabric-0.6.0+mc1.21.1.jar
+sodium-fabric-0.6.13%2Bmc1.21.1.jar
+sodium-fabric-0.6.13+mc1.21.1.jar
+sodiumoptionsapi-fabric-1.0.10-1.21.1.jar
+sophisticatedbackpacks-1.21.1-3.23.4.3.106.jar
+sophisticatedcore-1.21.1-1.2.9.21.168.jar
+sophisticatedstorage-1.21.1-1.3.7.9.139.jar
+sound-physics-remastered-fabric-1.21.1-1.5.1.jar
+soundsbegone-1.3.5.jar
+StackDeobfuscatorFabric-1.4.3%2B08e71cc.jar
+StackDeobfuscatorFabric-1.4.3+08e71cc.jar
+supermartijn642configlib-1.1.8-fabric-mc1.21.jar
+supermartijn642corelib-1.1.21-fabric-mc1.21.jar
+Terralith_1.21.x_v2.5.8.jar.disabled
+timcore-fabric-1.7.3-1.31.0.jar
+tmcraft-1.4.18%2B1.7.3.jar
+tmcraft-1.4.18+1.7.3.jar
+toms_storage_fabric-1.21-2.3.0.jar
+tooltipfix-1.1.1-1.20.jar
+TreeChop-1.21.1-fabric-0.19.3a.jar
+trinkets-3.10.0.jar
+VanillaBackport-fabric-1.21.1-1.1.6.3.jar
+villagerconfig-fabric-4.5.2%2B1.21.1.jar
+villagerconfig-fabric-4.5.2+1.21.1.jar
+voicechat-fabric-1.21.1-2.6.20.jar
+waystones-fabric-1.21.1-21.1.29.jar
+xaerominimap-fabric-1.21.1-25.3.10.jar
+xaeroworldmap-fabric-1.21.1-1.40.11.jar
+yet_another_config_lib_v3-3.8.1%2B1.21.1-fabric.jar
+yet_another_config_lib_v3-3.8.1+1.21.1-fabric.jar
+zamega-fabric-1.7.1.jar
+zfastnoise-1.0.12%2B1.21.jar
+zfastnoise-1.0.12+1.21.jar
+zoomify-2.15.1%2B1.21.1.jar
+zoomify-2.15.1+1.21.1.jar
+
+[resourcepacks]
+-1.21.2 Fresh Moves v3.1 (With Animated Eyes).zip
+-1.21.2%20Fresh%20Moves%20v3.1%20(With%20Animated%20Eyes).zip
+Cobblemon 3D Poké Rods 1.0.zip
+Cobblemon Classic Grass Pack v1.0 MC1.21.1.zip
+Cobblemon Interface Modded v1.9.4.zip
+Cobblemon Interface Modded v1.9.4.zip.rpo
+Cobblemon Interface v1.6.0.zip
+Cobblemon Interface v1.6.0.zip.rpo
+Cobblemon%203D%20Pok%C3%A9%20Rods%201.0.zip
+Cobblemon%20Classic%20Grass%20Pack%20v1.0%20MC1.21.1.zip
+Cobblemon%20Interface%20Modded%20v1.9.4.zip
+Cobblemon%20Interface%20Modded%20v1.9.4.zip.rpo
+Cobblemon%20Interface%20v1.6.0.zip
+Cobblemon%20Interface%20v1.6.0.zip.rpo
+COBBLEVERSE RCTmod RP.zip
+COBBLEVERSE RP [CF].zip
+COBBLEVERSE Soundtrack.zip
+COBBLEVERSE%20RCTmod%20RP.zip
+COBBLEVERSE%20RP%20[CF].zip
+COBBLEVERSE%20Soundtrack.zip
+COBBLEVERSE-CCC.zip
+Comforts Modernized - V1.1.zip
+Comforts%20Modernized%20-%20V1.1.zip
+CurseForge RP.zip
+CurseForge%20RP.zip
+E19 Cobblemon Minimap Icons.zip
+E19%20Cobblemon%20Minimap%20Icons.zip
+FreshAnimations_v1.10.4.zip
+Fully Hisuian Starters 1.1.1.zip
+Fully%20Hisuian%20Starters%201.1.1.zip
+Icon Fresh 0.4.zip
+Icon%20Fresh%200.4.zip
+
+[shaderpacks]
+COBBLEVERSE - Shaders
+COBBLEVERSE - Shaders (High Quality)
+COBBLEVERSE - Shaders (High Quality).txt
+COBBLEVERSE - Shaders.txt
+COBBLEVERSE%20-%20Shaders
+COBBLEVERSE%20-%20Shaders%20(High%20Quality)
+COBBLEVERSE%20-%20Shaders%20(High%20Quality).txt
+COBBLEVERSE%20-%20Shaders.txt
+ComplementaryUnbound_r5.7.1 + EuphoriaPatches_1.8.6
+ComplementaryUnbound_r5.7.1 + EuphoriaPatches_1.8.6.txt
+ComplementaryUnbound_r5.7.1%20%2B%20EuphoriaPatches_1.8.6
+ComplementaryUnbound_r5.7.1%20%2B%20EuphoriaPatches_1.8.6.txt
+ComplementaryUnbound_r5.7.1.zip

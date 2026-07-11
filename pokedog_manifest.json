@@ -9,10 +9,10 @@
     "size": 86589754
   },
   "payload": {
-    "version": "pokedog-v2-20260711-pokedog2-base-legendarymonuments-neruina",
+    "version": "pokedog-v2-20260710-clientpack-catchrate-allowlist",
     "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.22/cobbleverse_payload.zip",
-    "sha256": "170ca76d18c2e05c41ff9590a8ba55fe284d80ad3ee5f177b2e2eedbee6bdf36",
-    "size": 545611657,
+    "sha256": "7F4D999E10053AE659D35A3C31114DAFD32F70FD048BE2944A307322847BAC8D",
+    "size": 529731367,
     "mirrors": [],
     "managedRoots": [
       "mods",
