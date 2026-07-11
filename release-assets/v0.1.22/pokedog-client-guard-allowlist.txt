@@ -26,8 +26,8 @@ capturexp-fabric-1.7.3-1.3.0.jar
 Carved Wood-fabric-1.21.1-1.8.2.jar
 Carved%20Wood-fabric-1.21.1-1.8.2.jar
 catchindicator-fabric-1.6.2.jar
-catchrate-display-fabric-2.8.22.jar
 chipped-fabric-1.21.1-4.0.2.jar
+catchrate-display-fabric-2.8.22.jar
 Chunky-Fabric-1.4.23.jar
 cloth-config-15.0.140-fabric.jar
 cobblecuisine-2.0.1-1.7-rc1.jar
@@ -89,7 +89,6 @@ interactic-0.2.3%2B1.21.jar
 interactic-0.2.3+1.21.jar
 iris-fabric-1.8.8%2Bmc1.21.1.jar
 iris-fabric-1.8.8+mc1.21.1.jar
-jei-1.21.1-fabric-19.27.0.346.jar
 konkrete_fabric_1.9.9_MC_1.21.jar
 krypton-0.2.8.jar
 lenientdeath-1.2.5%2B1.21.1.jar
