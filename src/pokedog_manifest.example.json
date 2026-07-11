@@ -21,7 +21,22 @@
     ],
     "removeMissing": true
   },
-  "updatePackages": [],
+  "updatePackages": [
+    {
+      "version": "v0.1.20-cleanup-legacy-client-jars",
+      "removes": [
+        "mods/c2me-fabric-mc1.21.1-0.3.0 alpha.0.362.jar",
+        "mods/c2me-fabric-mc1.21.1-0.4.0-alpha.0.18.jar",
+        "mods/c2me-fabric-mc1.21.1-0.4.0-alpha.0.18.jar.disabled",
+        "mods/catchrate-display-fabric-2.8.14.jar",
+        "mods/cobblemon-additions-4.1.6.jar",
+        "mods/cobblemon-battle-extras-fabric-1.12.42.jar",
+        "mods/mega_showdown-fabric-1.7.3+1.7.3+1.21.1.jar",
+        "mods/rctapi-fabric-1.21.1-0.15.0-beta.jar",
+        "mods/rctmod-fabric-1.21.1-0.17.7-beta.jar"
+      ]
+    }
+  ],
   "files": [
     {
       "path": "mods/pokedog-client-guard-0.1.0.jar",
