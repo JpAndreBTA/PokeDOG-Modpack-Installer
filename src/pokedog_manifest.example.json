@@ -11,8 +11,8 @@
   "payload": {
     "version": "pokedog-v2-20260710-clientpack-guard-sync",
     "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.19/cobbleverse_payload.zip",
-    "sha256": "1776cf4165ab142885e6fa93cc4f3a9be36b14ed3923936e5e0804a87648ab02",
-    "size": 521375740,
+    "sha256": "17e269a20ec526294b7fd402dd8ddb3a1226a16034bc2f5ab1a4cd4e5a08dbf7",
+    "size": 521370551,
     "mirrors": [],
     "managedRoots": [
       "mods",
