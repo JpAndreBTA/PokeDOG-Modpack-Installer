@@ -2,17 +2,17 @@
   "packVersion": "pokedog-v2",
   "guardVersion": "0.1.0",
   "installer": {
-    "displayVersion": "v0.1.23",
-    "version": "0.1.23",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.23/PokeDOG-Modpack-Installer.exe",
+    "displayVersion": "v0.1.24",
+    "version": "0.1.24",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.24/PokeDOG-Modpack-Installer.exe",
     "sha256": "c163c6302381ba64356cf560d032befc01f39942521865f7203f0941ca85a454",
     "size": 86589754
   },
   "payload": {
-    "version": "pokedog-v2-20260711-modern-neruina-chipped",
-    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.23/cobbleverse_payload.zip",
-    "sha256": "852d9414ffc56430a239192543f9f2cc67e2cd0003c936f4de1a42ec6dab19ac",
-    "size": 528257739,
+    "version": "pokedog-v2-20260722-cobbleverse-1.7.42",
+    "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.24/cobbleverse_payload.zip",
+    "sha256": "83e03c4f7e695e420234036e2d489b58ee4f75d3afff585cc2bfcc4f01fd2c8e",
+    "size": 896893047,
     "mirrors": [],
     "managedRoots": [
       "mods",
@@ -25,16 +25,16 @@
   "files": [
     {
       "path": "mods/pokedog-client-guard-0.1.0.jar",
-      "sha256": "9c235a87456c2224944371ada937d78a011c87de3f3c0a8c048b137990c18e0b",
-      "size": 75951,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.23/pokedog-client-guard-0.1.0.jar",
+      "sha256": "5f2bd52485536170ae993c653a95b65eb6ec83a56e42ab777046d3bc6cb021da",
+      "size": 75365,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.24/pokedog-client-guard-0.1.0.jar",
       "policy": "required"
     },
     {
       "path": "config/pokedog-client-guard-allowlist.txt",
-      "sha256": "895cdca5675d9ee7a344b6149d4dacb93637e3fb877cb0c8f170a2a7189ca777",
-      "size": 8815,
-      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.23/pokedog-client-guard-allowlist.txt",
+      "sha256": "3584682ed996a0ec1c3215ced7a4ec62d8b572b4faddcd5d34d578ee1756c001",
+      "size": 11079,
+      "url": "https://github.com/JpAndreBTA/PokeDOG-Modpack-Installer/releases/download/v0.1.24/pokedog-client-guard-allowlist.txt",
       "policy": "required"
     }
   ]
