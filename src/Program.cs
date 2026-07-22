@@ -2521,6 +2521,57 @@ internal static class LauncherProfileSynchronizer
 
 internal static class InstallerEngine
 {
+    private static readonly string[] RequiredResourcePacks =
+    {
+        "vanilla",
+        "fabric",
+        "cobbreeding:pasturefix",
+        "highlight:highlight_extended",
+        "betterbeds:fancyconnectedbeds",
+        "continuity:default",
+        "continuity:glass_pane_culling_fix",
+        "cobbreeding:coloredeggs",
+        "file/Low Fire.zip",
+        "file/Comforts Modernized.zip",
+        "file/Emissive Cobblemon Ores.zip",
+        "file/Classic Grass.zip",
+        "file/PokeRods3D.zip",
+        "file/Canon PC Wallpapers.zip",
+        "file/Cobblemon Interface.zip",
+        "file/Cobblemon Interface Modded.zip",
+        "file/PokeDiscs.zip",
+        "file/Original Pokemon Battle Music.zip",
+        "file/JigglyRadio.zip",
+        "file/Fresh Animations.zip",
+        "file/Fresh Moves.zip",
+        "file/Fresh Icons.zip",
+        "vanillabackport:freshly_animated",
+        "cobblemon:gyaradosjump",
+        "cobblemon:uniqueshinyforms",
+        "mega_showdown:gyaradosjumpingmega",
+        "mega_showdown:regionbiasmsd",
+        "cobblemon:regionbiasforms",
+        "file/ATMxMSD RP.zip",
+        "file/FullyHisuianStarters RP.zip",
+        "file/EeveelutionsReimagined RP.zip",
+        "file/OJsAnimations RP.zip",
+        "file/PlanetaCobblemon RP.zip",
+        "file/GlitchDex RP.zip",
+        "file/CavsCobbleMons RP.zip",
+        "file/LackingMons RP.zip",
+        "file/TDmon RP.zip",
+        "file/MysticMons RP.zip",
+        "file/MundialMons RP.zip",
+        "file/MissingMons RP.zip",
+        "file/HydroReanimodel RP.zip",
+        "file/Pokemans RP.zip",
+        "file/CobbleMotion RP.zip",
+        "file/E19 Cobblemon Minimap Icons.zip",
+        "file/COBBLEVERSE Soundtrack.zip",
+        "file/COBBLEVERSE RCTmod RP.zip",
+        "file/COBBLEVERSE RP.zip"
+    };
+
     private const long ResumableDownloadThresholdBytes = 64L * 1024 * 1024;
     private const int DownloadChunkBytes = 2 * 1024 * 1024;
     private const int DownloadMaxAttempts = 5;
@@ -2585,13 +2636,12 @@ internal static class InstallerEngine
             return;
         }
 
-        var allowlistedEntriesByRoot = LoadGuardAllowlistedManagedEntries(targetRoot, log);
         var installState = await LoadInstalledStateAsync(targetRoot, cancellationToken);
         var payloadPath = await ResolvePayloadAsync(options.PayloadZip, manifest, installState, targetRoot, http, options.DryRun, options.ForceRepair, log, cancellationToken);
         PayloadApplyResult? payloadResult = null;
         if (!string.IsNullOrWhiteSpace(payloadPath))
         {
-            payloadResult = await ExtractPayloadAsync(payloadPath, targetRoot, backupRoot, manifest.Payload, allowlistedEntriesByRoot, options.DryRun, log, cancellationToken);
+            payloadResult = await ExtractPayloadAsync(payloadPath, targetRoot, backupRoot, manifest.Payload, options.DryRun, log, cancellationToken);
             installState = MarkPayloadInstalled(installState, manifest, payloadResult);
         }
         else
@@ -2605,7 +2655,6 @@ internal static class InstallerEngine
                 payloadResult.ManagedFiles,
                 payloadResult.ManagedRoots,
                 GetManifestManagedRetainedFiles(manifest, payloadResult.ManagedRoots),
-                allowlistedEntriesByRoot,
                 targetRoot,
                 backupRoot,
                 options.DryRun,
@@ -2621,7 +2670,6 @@ internal static class InstallerEngine
                     stateInventory.ManagedFiles,
                     stateInventory.ManagedRoots,
                     GetManifestManagedRetainedFiles(manifest, stateInventory.ManagedRoots),
-                    allowlistedEntriesByRoot,
                     targetRoot,
                     backupRoot,
                     options.DryRun,
@@ -2639,7 +2687,6 @@ internal static class InstallerEngine
                         inventory.ManagedFiles,
                         inventory.ManagedRoots,
                         GetManifestManagedRetainedFiles(manifest, inventory.ManagedRoots),
-                        allowlistedEntriesByRoot,
                         targetRoot,
                         backupRoot,
                         options.DryRun,
@@ -3039,8 +3086,15 @@ internal static class InstallerEngine
             return false;
         }
 
-        var hasNewerVersion = IsNewerVersion(installer.Version, thisVersion);
-        if (!hasNewerVersion)
+        var versionComparison = CompareVersions(installer.Version, thisVersion);
+        if (versionComparison < 0)
+        {
+            log.Write($"Atualizador: executavel local {thisVersion} e mais novo que a revisao remota {installer.Version}; mantendo a versao local.");
+            log.ReportProgress(10);
+            return false;
+        }
+
+        if (versionComparison == 0)
         {
             log.Write($"Atualizador: mesma versao {thisVersion}, mas hash remoto diferente detectado. Aplicando revisao publicada do instalador.");
         }
@@ -3092,7 +3146,7 @@ internal static class InstallerEngine
         log.Write("Auto-update agendado para substituir o executavel apos fechar.");
     }
 
-    private static async Task<PayloadApplyResult> ExtractPayloadAsync(string zipPath, string targetRoot, string backupRoot, PayloadPackage? payload, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task<PayloadApplyResult> ExtractPayloadAsync(string zipPath, string targetRoot, string backupRoot, PayloadPackage? payload, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         log.Write($"Payload local: {zipPath}");
         log.ReportProgress(45);
@@ -3106,7 +3160,7 @@ internal static class InstallerEngine
         var preservedUserFiles = 0;
         if (!dryRun)
         {
-            await RemoveManagedRootContentsAsync(targetRoot, backupRoot, managedRoots, allowlistedEntriesByRoot, log, cancellationToken);
+            await RemoveManagedRootContentsAsync(targetRoot, backupRoot, managedRoots, log, cancellationToken);
         }
         foreach (var entry in files)
         {
@@ -3168,11 +3222,15 @@ internal static class InstallerEngine
         {
             log.Write($"Dados do usuario preservados: {preservedUserFiles} arquivo(s) de configuracao/opcoes/lista de servidores.");
         }
+        if (!dryRun)
+        {
+            await SyncRequiredResourcePackSelectionAsync(targetRoot, backupRoot, log, cancellationToken);
+        }
         log.Write(dryRun ? $"Payload verificado: {plannedUpdates} arquivo(s) precisam instalar/atualizar." : $"Payload aplicado: {plannedUpdates} arquivo(s) instalados/atualizados.");
         return new PayloadApplyResult(managedFiles, managedRoots, managedFileStates);
     }
 
-    private static async Task RemoveManagedRootContentsAsync(string targetRoot, string backupRoot, IReadOnlyList<string> managedRoots, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task RemoveManagedRootContentsAsync(string targetRoot, string backupRoot, IReadOnlyList<string> managedRoots, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
         foreach (var root in managedRoots)
@@ -3187,16 +3245,9 @@ internal static class InstallerEngine
 
             var files = Directory.EnumerateFiles(absoluteRoot, "*", SearchOption.AllDirectories).ToList();
             var deleted = 0;
-            var preserved = 0;
             foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
-                if (IsAllowlistedManagedPath(relativePath, root, allowlistedEntriesByRoot))
-                {
-                    preserved++;
-                    continue;
-                }
                 BackupFile(file, backupRoot, targetRoot);
                 File.Delete(file);
                 deleted++;
@@ -3205,10 +3256,6 @@ internal static class InstallerEngine
             if (deleted > 0)
             {
                 log.Write($"Instalacao limpa: {deleted} arquivo(s) removidos de {root} com backup.");
-            }
-            if (preserved > 0)
-            {
-                log.Write($"Allowlist respeitada: {preserved} arquivo(s) preservados em {root}.");
             }
         }
     }
@@ -3222,6 +3269,27 @@ internal static class InstallerEngine
         }
         return normalized is "servers.dat" or "servers.dat_old" ||
             (normalized.StartsWith("options", StringComparison.OrdinalIgnoreCase) && normalized.EndsWith(".txt", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task SyncRequiredResourcePackSelectionAsync(string targetRoot, string backupRoot, IInstallerLog log, CancellationToken cancellationToken)
+    {
+        var optionsPath = Path.Combine(targetRoot, "options.txt");
+        if (!File.Exists(optionsPath))
+        {
+            return;
+        }
+
+        var requiredLine = "resourcePacks:[" + string.Join(",", RequiredResourcePacks.Select(pack => $"\"{pack}\"")) + "]";
+        var current = await File.ReadAllTextAsync(optionsPath, cancellationToken);
+        var updated = Regex.Replace(current, "(?m)^resourcePacks:.*$", requiredLine);
+        if (updated.Equals(current, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        BackupFile(optionsPath, backupRoot, targetRoot);
+        await File.WriteAllTextAsync(optionsPath, updated, new UTF8Encoding(false), cancellationToken);
+        log.Write("Resource packs oficiais sincronizados nas opcoes do cliente.");
     }
 
     private static bool IsUserConfigFile(string relativePath)
@@ -3254,7 +3322,7 @@ internal static class InstallerEngine
         return new PayloadApplyResult(managedFiles, managedRoots, managedFileStates);
     }
 
-    private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, HashSet<string> retainedFiles, IReadOnlyDictionary<string, HashSet<string>> allowlistedEntriesByRoot, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
+    private static async Task RemoveMissingManagedFilesAsync(HashSet<string> payloadFiles, IReadOnlyList<string> managedRoots, HashSet<string> retainedFiles, string targetRoot, string backupRoot, bool dryRun, IInstallerLog log, CancellationToken cancellationToken)
     {
         await Task.Yield();
         log.Write("Limpeza: verificando arquivos removidos do modpack.");
@@ -3280,16 +3348,6 @@ internal static class InstallerEngine
             cancellationToken.ThrowIfCancellationRequested();
             var relativePath = NormalizeRelativePath(Path.GetRelativePath(targetRoot, file));
             var normalized = NormalizeKey(relativePath);
-            var managedRoot = managedRoots.First(root => IsUnderManagedRoots(relativePath, new[] { root }));
-            if (IsAllowlistedManagedPath(relativePath, managedRoot, allowlistedEntriesByRoot))
-            {
-                processed++;
-                if (processed % 250 == 0 || processed == candidates.Count)
-                {
-                    log.Write($"Limpeza: {processed}/{candidates.Count} arquivos verificados.");
-                }
-                continue;
-            }
             if (retainedFiles.Contains(normalized))
             {
                 processed++;
@@ -4507,9 +4565,13 @@ internal static class InstallerEngine
         return $"{value:0.0} {units[unit]}";
     }
 
-    private static bool IsNewerVersion(string candidate, string current)
+    private static int CompareVersions(string candidate, string current)
     {
-        return Version.TryParse(candidate, out var c) && Version.TryParse(current, out var now) && c > now;
+        if (!Version.TryParse(candidate, out var c) || !Version.TryParse(current, out var now))
+        {
+            return 0;
+        }
+        return c.CompareTo(now);
     }
 }
 
